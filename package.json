@@ -14,5 +14,13 @@
   },
   "devDependencies": {
     "nodemon": "^1.12.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crazybmanp/RyuZU-bot2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/crazybmanp/RyuZU-bot2/issues"
+  },
+  "homepage": "https://github.com/crazybmanp/RyuZU-bot2#readme"
 }
