@@ -1,19 +1,27 @@
 var fs = require("fs");
+
+var bot = {};
 const Discord = require("discord.js");
-const client = new Discord.Client();
+var client = new Discord.Client();
 
 var contents = fs.readFileSync("config.json");
-var Config = JSON.parse(contents);
+var config = JSON.parse(contents);
+
+coreCogs = ["./Admin.js"]
+listeners = {ping: function(msg){msg.reply('Pong!');}};
+
+bot.listeners = listeners;
+bot.config = config;
+bot.client = client;
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
-listeners = {ping: function(msg){msg.reply('Pong!');}};
-
 client.on('message', msg => {
-  if(!msg.content.startsWith(Config.commandString)){return; }
-  msg.content = msg.content.substr(Config.commandString.length, msg.content.length);
+  if(!msg.content.startsWith(config.commandString)){return; }
+  msg.content = msg.content.substr(config.commandString.length, msg.content.length);
+  console.log(bot.listeners);
   for(var key in listeners)
   {
     if(msg.content.startsWith(key)){
@@ -22,4 +30,26 @@ client.on('message', msg => {
   }
 });
 
-client.login(Config.token);
+bot.registerCommand = function(command, func){
+  bot.listeners[command] = func;
+}
+
+coreCogs.forEach(function(element) {
+  try {
+    e = require(element)
+    e.setup(bot)
+  } catch (err) {
+    failure="failed to load" + element;
+  }
+}, this);
+
+config.startupExtensions.forEach(function(element) {
+  try {
+    e = require(element)
+    e.setup(bot)
+  } catch (err) {
+    failure="failed to load" + element;
+  }
+}, this);
+
+client.login(config.token);
