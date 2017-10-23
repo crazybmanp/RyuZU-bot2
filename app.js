@@ -21,7 +21,6 @@ client.on('ready', () => {
 client.on('message', msg => {
   if(!msg.content.startsWith(config.commandString)){return; }
   msg.content = msg.content.substr(config.commandString.length, msg.content.length);
-  console.log(bot.listeners);
   for(var key in listeners)
   {
     if(msg.content.startsWith(key)){
