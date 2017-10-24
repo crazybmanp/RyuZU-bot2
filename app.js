@@ -8,7 +8,7 @@ var contents = fs.readFileSync("config.json");
 var config = JSON.parse(contents);
 
 coreCogs = ["./Admin.js"]
-listeners = {ping: function(msg){msg.reply('Pong!');}};
+listeners = {};
 
 bot.listeners = listeners;
 bot.config = config;
@@ -33,6 +33,14 @@ bot.registerCommand = function(command, func){
   bot.listeners[command] = func;
 }
 
+//-----------
+//Begin Setup
+//-----------
+
+//register base commands
+bot.registerCommand("ping", function(msg){msg.reply('Pong!')});
+
+//Load Core Cogs
 coreCogs.forEach(function(element) {
   try {
     e = require(element)
@@ -42,6 +50,7 @@ coreCogs.forEach(function(element) {
   }
 }, this);
 
+//Load Startup Cogs
 config.startupExtensions.forEach(function(element) {
   try {
     e = require(element)
@@ -51,4 +60,5 @@ config.startupExtensions.forEach(function(element) {
   }
 }, this);
 
+//start the client
 client.login(config.token);
