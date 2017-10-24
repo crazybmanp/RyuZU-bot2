@@ -46,7 +46,7 @@ bot.loadCog = function(cogname)
   if(loadedCogs.contains(cogname)){console.log(cogname + " is already loaded."); return;}
   try {
     e = require(cogname);
-    if(Array.isArray(e.requires))
+    if(Array.isArray(e.requires) && e.requires.length>0)
     {
       console.log("Module "+cogname+" requires: "+e.requires);
       for(var i=0; i<e.requires.length; i++)
