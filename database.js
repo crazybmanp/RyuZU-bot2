@@ -35,17 +35,28 @@ var getCogDB = function (cogkey, server) {
         fs.mkdirSync(file);
     }
     var file = file + cogkey + "/";
-    if (!fs.existsSync(databasesDir)) {
-        fs.mkdirSync(databasesDir);
+    if (!fs.existsSync(file)) {
+        fs.mkdirSync(file);
     }
     var file = file + server + ".json";
     return getDB(file);
+}
+
+var getAllCogDBs = function (cogkey) {
+    var dbs = {};
+    var servers = bot.client.guilds;
+    for (var mel of servers) {
+        guildid = mel[1].id;
+        dbs[guildid] = getCogDB(cogkey, guildid);
+    }
+    return dbs;
 }
 
 var setup = function (b) {
     bot = b;
     bot.getGlobalDB = getGlobalDB;
     bot.getCogDB = getCogDB;
+    bot.getAllCogDBs = getAllCogDBs;
 }
 
 exports.requires = [];
