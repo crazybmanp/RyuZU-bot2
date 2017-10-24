@@ -87,4 +87,5 @@ var setup = function(b)
     bot.registerCommand("purge", purge);
 }
 
+exports.requires = [];
 exports.setup = setup;
