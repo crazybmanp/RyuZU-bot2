@@ -8,7 +8,18 @@ var setup = function (b) {
 
 var ready = function () {
     console.log("Quote - Mounting DBs");
-    sever_db = bot.getAllCogDBs("quotes");
+    server_db = bot.getAllCogDBs("quotes");
+    for (var dbname in server_db) {
+        db = server_db[dbname];
+        if (!db.has('quotes').value()) {
+            console.log("Setting up new server");
+            db.defaults({
+                quotes: [],
+                categories: []
+            }).write();
+        }
+    }
+    bot.registerCommand("quote", quoteHandler);
 }
 
 exports.requires = ["./database.js"];
