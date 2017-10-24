@@ -1,6 +1,29 @@
+var lo = require("lodash");
 var bot = {};
-
 var server_db = {};
+var subcommands = {};
+
+var quoteHandler = function (msg) {
+    var command = msg.content.split(" ")[0];
+    msg.content = msg.content.substr(command.length + 1, msg.content.length);
+    if (command === "") {
+        command = "random"
+    };
+    var fn = subcommands[command];
+    if (typeof fn === 'function') {
+        fn(msg);
+    } else {
+        msg.reply("Cannot find subcommand... [" + command + "]");
+    }
+}
+
+var randomQuote = function (msg) {
+    var db = server_db[msg.guild.id];
+    var val = db.get('quotes').shuffle().head().value();
+    console.log(val);
+    msg.reply(val.category + ": "+val.quote);
+};
+subcommands["random"] = randomQuote;
 
 var setup = function (b) {
     bot = b;
