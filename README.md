@@ -28,10 +28,9 @@ You can creat a cog either locally as a loose file in the repo, or make an NPM p
 ```javascript
 var bot = {};
 
-var setup = function(b)
-{
+var setup = function (b) {
     bot = b;
-    bot.registerCommand("ping", function(msg){msg.reply('Pong!')});
+    bot.registerCommand("ping", function (msg) {msg.reply('Pong!')});
 }
 
 exports.requires = [];
