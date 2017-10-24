@@ -8,22 +8,31 @@ var contents = fs.readFileSync("config.json");
 var config = JSON.parse(contents);
 
 coreCogs = ["./Admin.js"]
-loadedCogs = [];
+loadedCogs = {};
 listeners = {};
 
 bot.listeners = listeners;
 bot.config = config;
 bot.client = client;
-
-Array.prototype.contains = function(element){
-  return this.indexOf(element) > -1;
-};
+bot.loadedCogs = loadedCogs;
+bot.ready = false;
 
 client.on('ready', () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+  console.log(`Logged in as ${client.user.tag}! Now readying up!`);
+  for(var cogName in loadedCogs)
+  {
+    cog = loadedCogs[cogName];
+    if(typeof cog.ready === 'function')
+    {
+      console.log("Readying "+cogName);
+      cog.ready();
+    }
+  }
+  bot.ready = true;
 });
 
 client.on('message', msg => {
+  if(!bot.ready) {console.log("BOT RECIEVED MESSAGE BEFORE READY COMPLETED"); return;}
   if(!msg.content.startsWith(config.commandString)){return; }
   msg.content = msg.content.substr(config.commandString.length, msg.content.length);
   var command = msg.content.split(" ")[0];
@@ -43,9 +52,9 @@ bot.registerCommand = function(command, func){
 
 bot.loadCog = function(cogname)
 {
-  if(loadedCogs.contains(cogname)){console.log(cogname + " is already loaded."); return;}
+  if(cogname in loadedCogs){console.log(cogname + " is already loaded."); return;}
   try {
-    e = require(cogname);
+    var e = require(cogname);
     if(Array.isArray(e.requires) && e.requires.length>0)
     {
       console.log("Module "+cogname+" requires: "+e.requires);
@@ -54,8 +63,9 @@ bot.loadCog = function(cogname)
         bot.loadCog(e.requires[i]);
       }
     }
+    console.log("setting up "+cogname);
     e.setup(bot);
-    loadedCogs.push(cogname);
+    loadedCogs[cogname]=e;
     console.log(cogname + " loaded.");
   } catch (err) {
     console.log("failed to load " + cogname);
