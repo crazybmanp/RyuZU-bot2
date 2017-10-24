@@ -23,9 +23,8 @@ var isMod = function(channel, author)
 var say = function(msg)
 {
     msg.channel.startTyping();
-    var m = msg.content.substr(4);
     msg.delete();
-    msg.channel.send(m)
+    msg.channel.send(msg.content)
     .catch(function(err){msg.channel.send("I can't say that for some reason")
     .catch(function(){console.log("something fucked up")})});
     msg.channel.stopTyping();
@@ -36,8 +35,7 @@ var clean = function(msg)
     msg.channel.startTyping();
     if(bot.isMod(msg.channel, msg.author))
     {
-        var m = msg.content.substr(6);
-        lim = parseInt(m);
+        lim = parseInt(msg.content);
         msg.channel.fetchMessages({limit: isNaN(lim) ? 100 : lim})
         .then(function(messages){
             var messages = messages.filter(function(s){
@@ -59,8 +57,7 @@ var purge = function(msg)
     msg.channel.startTyping();
     if(bot.isMod(msg.channel, msg.author))
     {
-        var m = msg.content.substr(6);
-        lim = parseInt(m) + 1;
+        lim = parseInt(msg.content) + 1;
         if(isNaN(lim))
         {
             msg.reply("You need to specify a number of messages to purge.");

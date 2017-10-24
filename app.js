@@ -21,11 +21,14 @@ client.on('ready', () => {
 client.on('message', msg => {
   if(!msg.content.startsWith(config.commandString)){return; }
   msg.content = msg.content.substr(config.commandString.length, msg.content.length);
-  for(var key in listeners)
+  var command = msg.content.split(" ")[0];
+  msg.content = msg.content.substr(command.length + 1, msg.content.length);
+  var fn = listeners[command];
+  if(typeof fn === 'function')
   {
-    if(msg.content.startsWith(key)){
-      listeners[key](msg);
-    }
+    fn(msg);
+  } else {
+    msg.reply("I don't know quite know what you want from me... [not a command]");
   }
 });
 
