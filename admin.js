@@ -84,6 +84,7 @@ var setup = function(b)
     bot.isMod = isMod;
     bot.registerCommand("say", say);
     bot.registerCommand("clean", clean);
+    bot.registerCommand("clear", clean);
     bot.registerCommand("purge", purge);
 }
 
