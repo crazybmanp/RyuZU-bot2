@@ -3,6 +3,14 @@ var bot = {};
 var server_db = {};
 var subcommands = {};
 
+var randomQuote = function (msg) {
+    var db = server_db[msg.guild.id];
+    var val = db.get('quotes').shuffle().head().value();
+    console.log(val);
+    msg.reply(val.category + ": "+val.quote);
+};
+subcommands["random"] = randomQuote;
+
 var quoteHandler = function (msg) {
     var command = msg.content.split(" ")[0];
     msg.content = msg.content.substr(command.length + 1, msg.content.length);
@@ -15,18 +23,6 @@ var quoteHandler = function (msg) {
     } else {
         msg.reply("Cannot find subcommand... [" + command + "]");
     }
-}
-
-var randomQuote = function (msg) {
-    var db = server_db[msg.guild.id];
-    var val = db.get('quotes').shuffle().head().value();
-    console.log(val);
-    msg.reply(val.category + ": "+val.quote);
-};
-subcommands["random"] = randomQuote;
-
-var setup = function (b) {
-    bot = b;
 }
 
 var ready = function () {
@@ -42,6 +38,10 @@ var ready = function () {
             }).write();
         }
     }
+}
+
+var setup = function (b) {
+    bot = b;
     bot.registerCommand("quote", quoteHandler);
 }
 
