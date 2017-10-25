@@ -10,7 +10,8 @@
   "license": "All rights reserved",
   "dependencies": {
     "discord.js": "^11.2.1",
-    "tinydb": "^0.1.0"
+    "lodash": "^4.17.4",
+    "lowdb": "^1.0.0"
   },
   "devDependencies": {
     "nodemon": "^1.12.1"
