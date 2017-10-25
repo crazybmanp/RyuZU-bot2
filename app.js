@@ -39,7 +39,7 @@ client.on("guildCreate", guild => {
     if(typeof cog.newGuild === 'function')
     {
       console.log("Notifying "+cogName+" of new guild.");
-      cog.newGuild();
+      cog.newGuild(guild);
     }
   }
 });
