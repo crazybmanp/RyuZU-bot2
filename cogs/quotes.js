@@ -113,12 +113,21 @@ var ready = function () {
         db = server_db[dbname];
         if (!db.has('quotes').value()) {
             console.log("Setting up new server");
-            db2.defaults({
+            db.defaults({
                 quotes: [],
                 nextID: 0
             }).write();
         }
     }
+}
+
+var newGuild = function(guild) {
+    db = bot.getCogDB("quotes", guild.id);
+    db.defaults({
+        quotes: [],
+        nextID: 0
+    }).write();
+    server_db[guild.id]=db;
 }
 
 var setup = function (b) {
@@ -129,3 +138,4 @@ var setup = function (b) {
 exports.requires = ["./database.js"];
 exports.ready = ready;
 exports.setup = setup;
+exports.newGuild = newGuild;
