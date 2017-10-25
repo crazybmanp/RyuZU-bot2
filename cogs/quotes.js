@@ -55,6 +55,10 @@ subcommands["get"] = getQuote;
 subcommands["give"] = getQuote;
 
 var deleteQuote = function (msg) {
+    if(!bot.isMod(msg.channel, msg.author))
+    {
+        msg.reply("You are not allowed to do that");
+    }
     num = parseInt(msg.content);
     if(isNaN(num))
     {
