@@ -54,6 +54,26 @@ var getQuote = function (msg) {
 subcommands["get"] = getQuote;
 subcommands["give"] = getQuote;
 
+var deleteQuote = function (msg) {
+    num = parseInt(msg.content);
+    if(isNaN(num))
+    {
+        msg.reply("You need to give a quote number in order to get a quote");
+        return;
+    }
+    var val = db.get('quotes').find({id: num}).value();
+    if (typeof val === 'undefined')
+    {
+        msg.reply("Quote not found.");
+        return;
+    }
+    db.get('quotes').remove({id: num}).write();
+    msg.reply("Quote removed: ");
+    printQuote(msg, val);
+}
+subcommands["delete"] = deleteQuote;
+subcommands["remove"] = deleteQuote;
+
 var addQuote = function (msg) {
     var splt = msg.content.split("\"");
     var supersplit = [];
@@ -83,12 +103,14 @@ var addQuote = function (msg) {
     var db = server_db[msg.guild.id];
     var id = db.get("nextID").value();
     db.get("quotes").push({
-        "nextID": id++,
+        "id": id++,
         "quote": quote,
         "category": category
     }).write();
     db.assign({ "nextID": id}).write();
-    msg.reply("Quote added!");
+    msg.reply("Quote added:");
+    var val = db.get('quotes').find({"id": (id-1)}).value();
+    printQuote(msg, val);
 }
 subcommands["add"] = addQuote;
 
