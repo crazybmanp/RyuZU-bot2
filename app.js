@@ -11,6 +11,8 @@ coreCogs = ["./Admin.js"]
 loadedCogs = {};
 listeners = {};
 
+version = "2.0"
+
 bot.listeners = listeners;
 bot.config = config;
 bot.client = client;
@@ -28,6 +30,14 @@ client.on('ready', () => {
       cog.ready();
     }
   }
+  var presence = {
+    status: "online",
+    afk: false,
+    game: {
+      name: config.gameMessage+"["+version+"]",
+    }
+  }
+  bot.client.user.setPresence(presence);
   bot.ready = true;
 });
 
