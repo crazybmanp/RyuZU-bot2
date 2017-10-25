@@ -31,6 +31,19 @@ client.on('ready', () => {
   bot.ready = true;
 });
 
+client.on("guildCreate", guild => {
+  console.log(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
+  for(var cogName in loadedCogs)
+  {
+    cog = loadedCogs[cogName];
+    if(typeof cog.newGuild === 'function')
+    {
+      console.log("Notifying "+cogName+" of new guild.");
+      cog.newGuild(guild);
+    }
+  }
+});
+
 client.on('message', msg => {
   if(!bot.ready) {console.log("BOT RECIEVED MESSAGE BEFORE READY COMPLETED"); return;}
   if(!msg.content.startsWith(config.commandString)){return; }
