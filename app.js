@@ -7,7 +7,7 @@ var client = new Discord.Client();
 var contents = fs.readFileSync("config.json");
 var config = JSON.parse(contents);
 
-coreCogs = ["./Admin.js"]
+coreCogs = ["./admin.js"]
 loadedCogs = {};
 listeners = {};
 
