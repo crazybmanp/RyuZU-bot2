@@ -7,9 +7,44 @@ var randomQuote = function (msg) {
     var db = server_db[msg.guild.id];
     var val = db.get('quotes').shuffle().head().value();
     console.log(val);
-    msg.reply(val.category + ": "+val.quote);
-};
+    msg.reply(val.category + ": " + val.quote);
+}
 subcommands["random"] = randomQuote;
+
+var addQuote = function (msg) {
+    var splt = msg.content.split("\"");
+    var supersplit = [];
+    splt.forEach(function (element) {
+        supersplit.push(element.split(" "));
+    }, this);
+    supersplit.forEach(function (element, i, arr) {
+        arr[i] = element.filter(Boolean);
+    }, this);
+
+    if (supersplit.length < 2) {
+        msg.reply("Usage: specify the quote in quotations, with one word before or after to specify its category");
+        return;
+    }
+    if (supersplit[0].length + supersplit[2].length > 1) {
+        msg.reply("Usage: specify the quote in quotations, with one word before or after to specify its category");
+        return;
+    }
+
+    var category = "";
+    if (supersplit[0].length == 1) {
+        category = supersplit[0][0];
+    } else {
+        category = supersplit[2][0];
+    }
+    var quote = supersplit[1].join(" ");
+    var db = server_db[msg.guild.id];
+    db.get("quotes").push({
+        "quote": quote,
+        "category": category
+    }).write();
+    msg.reply("Quote added!");
+}
+subcommands["add"] = addQuote;
 
 var quoteHandler = function (msg) {
     var command = msg.content.split(" ")[0];
