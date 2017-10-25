@@ -3,13 +3,56 @@ var bot = {};
 var server_db = {};
 var subcommands = {};
 
+var getCategories = function(db)
+{
+    return db.get('quotes').uniqBy('category').map('category').value();
+}
+
+var isCategory = function(db, cat)
+{
+    return getCategories(db).indexOf(cat) > -1
+}
+
+var printQuote = function(msg, quote)
+{
+    msg.channel.send(quote.id+"("+quote.category+"):"+quote.quote);
+}
+
 var randomQuote = function (msg) {
     var db = server_db[msg.guild.id];
-    var val = db.get('quotes').shuffle().head().value();
-    console.log(val);
-    msg.reply(val.category + ": " + val.quote);
+    var val = {};
+    if (msg.content.length > 0) {
+        var cat = msg.content.split(" ")[0];
+        if(!isCategory(db,cat))
+        {
+            msg.reply("Not a valid category.");
+            return;
+        }
+        val = db.get('quotes').filter({category: cat}).shuffle().head().value();
+    } else {
+        val = db.get('quotes').shuffle().head().value();
+    }
+    printQuote(msg, val);
 }
 subcommands["random"] = randomQuote;
+
+var getQuote = function (msg) {
+    num = parseInt(msg.content);
+    if(isNaN(num))
+    {
+        msg.reply("You need to give a quote number in order to get a quote");
+        return;
+    }
+    var val = db.get('quotes').find({id: num}).value();
+    if (typeof val === 'undefined')
+    {
+        msg.reply("Quote not found.");
+        return;
+    }
+    printQuote(msg, val);
+}
+subcommands["get"] = getQuote;
+subcommands["give"] = getQuote;
 
 var addQuote = function (msg) {
     var splt = msg.content.split("\"");
@@ -38,10 +81,13 @@ var addQuote = function (msg) {
     }
     var quote = supersplit[1].join(" ");
     var db = server_db[msg.guild.id];
+    var id = db.get("nextID").value();
     db.get("quotes").push({
+        "nextID": id++,
         "quote": quote,
         "category": category
     }).write();
+    db.assign({ "nextID": id}).write();
     msg.reply("Quote added!");
 }
 subcommands["add"] = addQuote;
@@ -67,9 +113,9 @@ var ready = function () {
         db = server_db[dbname];
         if (!db.has('quotes').value()) {
             console.log("Setting up new server");
-            db.defaults({
+            db2.defaults({
                 quotes: [],
-                categories: []
+                nextID: 0
             }).write();
         }
     }
