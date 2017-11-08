@@ -77,6 +77,11 @@ var purge = function(msg)
     }
 }
 
+var issue = function(msg)
+{
+    msg.reply("Here is a link to my issues page on my github, please report any issues here: https://github.com/crazybmanp/RyuZU-bot2/issues")
+}
+
 var setup = function(b)
 {
     bot = b;
@@ -86,6 +91,7 @@ var setup = function(b)
     bot.registerCommand("clean", clean);
     bot.registerCommand("clear", clean);
     bot.registerCommand("purge", purge);
+    bot.registerCommand("issue", issue);
 }
 
 exports.requires = [];
