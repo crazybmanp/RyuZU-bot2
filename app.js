@@ -7,11 +7,13 @@ var client = new Discord.Client();
 var contents = fs.readFileSync("config.json");
 var config = JSON.parse(contents);
 
-coreCogs = ["./admin.js"]
-loadedCogs = {};
-listeners = {};
+const coreCogs = ["./admin.js"]
+var loadedCogs = {};
+var listeners = {};
 
-version = "2.0"
+var pjson = require('./package.json');
+const version = pjson.version;
+console.log("RyuZu "+version+" starting up.")
 
 bot.listeners = listeners;
 bot.config = config;

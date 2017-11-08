@@ -8,7 +8,9 @@ In order to run, RyuZU needs a settings.json file to be created inside of its di
   "token": "",
   "owners": [],
   "startupExtensions": [],
-  "commandString": ""
+  "commandString": "",
+  "gameMessage": "",
+  "issuesPage": ""
 }
 ```
 You may wish to have more in this file depending on what cogs you are using.
@@ -18,6 +20,8 @@ You may wish to have more in this file depending on what cogs you are using.
 * *startupExtensions*: An array of what cogs you want to use. The strings should match the **exact** way they are in the project.
 * *owners*: An array of usernames for the server owner(s). These names should include the discriminator (the # with numbers after it)
 * *commandString*: A string that contains what character the bot uses for commands. This is **required** for the bot to do anything.
+* *gameMessage*: The message to show alongside the version number in the bot's status
+* *issuesPage*: A link to the relavent page to report issues to (provided for self-hosted, modified versions).
 * *devMode*: Optional. Signifies that the bot is in development mode.
 
 Even if you don't plan on using the *owners* or any extensions, you should include an empty array for those values.

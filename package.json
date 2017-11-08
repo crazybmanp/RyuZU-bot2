@@ -1,6 +1,6 @@
 {
   "name": "ryuzu-bot",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "A module based discord bot",
   "main": "app.js",
   "scripts": {
