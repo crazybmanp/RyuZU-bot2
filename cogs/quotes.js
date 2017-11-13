@@ -12,7 +12,7 @@ var isCategory = function (db, cat) {
 }
 
 var constructQuote = function (quote) {
-    return quote.id + "(" + quote.category + "):" + quote.quote;
+    return quote.id + "(" + quote.category + "): " + quote.quote;
 }
 
 var printQuote = function (msg, quote) {
