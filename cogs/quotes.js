@@ -52,10 +52,15 @@ var listQuote = function (msg) {
         }).value();
     } else {
         val = db.get('quotes').value();
-        console.log(val);
     }
     quoteText = val.map((x) => constructQuote(x));
-    msg.reply(quoteText.join("\n"));
+
+    if (quoteText.length < 1) {
+        msg.reply("found no quotes...");
+        return;
+    }
+
+    bot.printLong(msg.channel, quoteText);
 }
 subcommands["list"] = listQuote;
 
@@ -191,7 +196,7 @@ var setup = function (b) {
     bot.registerCommand("quote", quoteHandler);
 }
 
-exports.requires = ["./database.js"];
+exports.requires = ["./database.js", "./util.js"];
 exports.ready = ready;
 exports.setup = setup;
 exports.newGuild = newGuild;
