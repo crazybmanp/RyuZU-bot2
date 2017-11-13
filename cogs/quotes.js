@@ -11,8 +11,12 @@ var isCategory = function (db, cat) {
     return getCategories(db).indexOf(cat) > -1
 }
 
+var constructQuote = function (quote) {
+    return quote.id + "(" + quote.category + "): " + quote.quote;
+}
+
 var printQuote = function (msg, quote) {
-    msg.channel.send(quote.id + "(" + quote.category + "):" + quote.quote);
+    msg.channel.send(constructQuote(quote));
 }
 
 var randomQuote = function (msg) {
@@ -33,6 +37,32 @@ var randomQuote = function (msg) {
     printQuote(msg, val);
 }
 subcommands["random"] = randomQuote;
+
+var listQuote = function (msg) {
+    var db = server_db[msg.guild.id];
+    var val = {};
+    if (msg.content.length > 0) {
+        var cat = msg.content.split(" ")[0];
+        if (!isCategory(db, cat)) {
+            msg.reply("Not a valid category.");
+            return;
+        }
+        val = db.get('quotes').filter({
+            category: cat
+        }).value();
+    } else {
+        val = db.get('quotes').value();
+    }
+    quoteText = val.map((x) => constructQuote(x));
+
+    if (quoteText.length < 1) {
+        msg.reply("found no quotes...");
+        return;
+    }
+
+    bot.printLong(msg.channel, quoteText);
+}
+subcommands["list"] = listQuote;
 
 var getQuote = function (msg) {
     var db = server_db[msg.guild.id];
@@ -166,7 +196,7 @@ var setup = function (b) {
     bot.registerCommand("quote", quoteHandler);
 }
 
-exports.requires = ["./database.js"];
+exports.requires = ["./database.js", "./util.js"];
 exports.ready = ready;
 exports.setup = setup;
 exports.newGuild = newGuild;
