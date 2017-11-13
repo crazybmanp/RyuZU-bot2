@@ -3,19 +3,16 @@ var bot = {};
 var server_db = {};
 var subcommands = {};
 
-var getCategories = function(db)
-{
+var getCategories = function (db) {
     return db.get('quotes').uniqBy('category').map('category').value();
 }
 
-var isCategory = function(db, cat)
-{
+var isCategory = function (db, cat) {
     return getCategories(db).indexOf(cat) > -1
 }
 
-var printQuote = function(msg, quote)
-{
-    msg.channel.send(quote.id+"("+quote.category+"):"+quote.quote);
+var printQuote = function (msg, quote) {
+    msg.channel.send(quote.id + "(" + quote.category + "):" + quote.quote);
 }
 
 var randomQuote = function (msg) {
@@ -23,12 +20,13 @@ var randomQuote = function (msg) {
     var val = {};
     if (msg.content.length > 0) {
         var cat = msg.content.split(" ")[0];
-        if(!isCategory(db,cat))
-        {
+        if (!isCategory(db, cat)) {
             msg.reply("Not a valid category.");
             return;
         }
-        val = db.get('quotes').filter({category: cat}).shuffle().head().value();
+        val = db.get('quotes').filter({
+            category: cat
+        }).shuffle().head().value();
     } else {
         val = db.get('quotes').shuffle().head().value();
     }
@@ -37,15 +35,16 @@ var randomQuote = function (msg) {
 subcommands["random"] = randomQuote;
 
 var getQuote = function (msg) {
+    var db = server_db[msg.guild.id];
     num = parseInt(msg.content);
-    if(isNaN(num))
-    {
+    if (isNaN(num)) {
         msg.reply("You need to give a quote number in order to get a quote");
         return;
     }
-    var val = db.get('quotes').find({id: num}).value();
-    if (typeof val === 'undefined')
-    {
+    var val = db.get('quotes').find({
+        id: num
+    }).value();
+    if (typeof val === 'undefined') {
         msg.reply("Quote not found.");
         return;
     }
@@ -55,23 +54,25 @@ subcommands["get"] = getQuote;
 subcommands["give"] = getQuote;
 
 var deleteQuote = function (msg) {
-    if(!bot.isMod(msg.channel, msg.author))
-    {
+    var db = server_db[msg.guild.id];
+    if (!bot.isMod(msg.channel, msg.author)) {
         msg.reply("You are not allowed to do that");
     }
     num = parseInt(msg.content);
-    if(isNaN(num))
-    {
+    if (isNaN(num)) {
         msg.reply("You need to give a quote number in order to get a quote");
         return;
     }
-    var val = db.get('quotes').find({id: num}).value();
-    if (typeof val === 'undefined')
-    {
+    var val = db.get('quotes').find({
+        id: num
+    }).value();
+    if (typeof val === 'undefined') {
         msg.reply("Quote not found.");
         return;
     }
-    db.get('quotes').remove({id: num}).write();
+    db.get('quotes').remove({
+        id: num
+    }).write();
     msg.reply("Quote removed: ");
     printQuote(msg, val);
 }
@@ -111,9 +112,13 @@ var addQuote = function (msg) {
         "quote": quote,
         "category": category
     }).write();
-    db.assign({ "nextID": id}).write();
+    db.assign({
+        "nextID": id
+    }).write();
     msg.reply("Quote added:");
-    var val = db.get('quotes').find({"id": (id-1)}).value();
+    var val = db.get('quotes').find({
+        "id": (id - 1)
+    }).value();
     printQuote(msg, val);
 }
 subcommands["add"] = addQuote;
@@ -147,13 +152,13 @@ var ready = function () {
     }
 }
 
-var newGuild = function(guild) {
-    db = bot.getCogDB("quotes", guild.id);
+var newGuild = function (guild) {
+    var db = bot.getCogDB("quotes", guild.id);
     db.defaults({
         quotes: [],
         nextID: 0
     }).write();
-    server_db[guild.id]=db;
+    server_db[guild.id] = db;
 }
 
 var setup = function (b) {
