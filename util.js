@@ -4,11 +4,11 @@ var printLong = function (channel, items) {
     var messageList = [];
     var curMessage = "";
     for (var i = 0; i < items.length; i++) {
-        if (curMessage.length + items[i].length + 2 > 2000) {
+        if (curMessage.length + items[i].length > 2000) {
             messageList.push(curMessage);
             curMessage = "";
         }
-        curMessage += items[i] + "\n";
+        curMessage += items[i];
     }
     messageList.push(curMessage);
 

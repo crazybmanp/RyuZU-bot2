@@ -53,7 +53,7 @@ var listQuote = function (msg) {
     } else {
         val = db.get('quotes').value();
     }
-    quoteText = val.map((x) => constructQuote(x));
+    quoteText = val.map((x) => constructQuote(x) + "\n");
 
     if (quoteText.length < 1) {
         msg.reply("found no quotes...");
