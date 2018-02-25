@@ -63,12 +63,16 @@ client.on('message', msg => {
   var command = msg.content.split(" ")[0];
   msg.content = msg.content.substr(command.length + 1, msg.content.length);
   var fn = listeners[command];
-  if(typeof fn === 'function')
-  {
-    fn(msg);
+  if (typeof fn === 'function') {
+    try {
+      fn(msg)
+    } catch (error) {
+      console.log("Command error on input: " + msg.content);
+    }
   } else {
     msg.reply("I don't know quite know what you want from me... [not a command]");
   }
+  msg.channel.stopTyping();
 });
 
 bot.registerCommand = function(command, func){
