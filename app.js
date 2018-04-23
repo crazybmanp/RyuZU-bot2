@@ -63,6 +63,7 @@ client.on('message', msg => {
   var command = msg.content.split(" ")[0];
   msg.content = msg.content.substr(command.length + 1, msg.content.length);
   var fn = listeners[command];
+  msg.channel.startTyping();
   if (typeof fn === 'function') {
     try {
       fn(msg)
