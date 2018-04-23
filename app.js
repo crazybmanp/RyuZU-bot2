@@ -34,7 +34,7 @@ client.on('ready', () => {
     status: "online",
     afk: false,
     game: {
-      name: config.gameMessage + "[" + version + "]",
+      name: config.commandString + " " + config.gameMessage + "[" + version + "]",
     }
   }
   bot.client.user.setPresence(presence);
@@ -64,11 +64,17 @@ client.on('message', msg => {
   var command = msg.content.split(" ")[0];
   msg.content = msg.content.substr(command.length + 1, msg.content.length);
   var fn = listeners[command];
+  msg.channel.startTyping();
   if (typeof fn === 'function') {
-    fn(msg);
+    try {
+      fn(msg)
+    } catch (error) {
+      console.log("Command error on input: " + msg.content);
+    }
   } else {
     msg.reply("I don't know quite know what you want from me... [not a command]");
   }
+  msg.channel.stopTyping();
 });
 
 bot.registerCommand = function (command, func) {

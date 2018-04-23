@@ -18,7 +18,6 @@ var isMod = function (channel, author) {
 }
 
 var say = function (msg) {
-    msg.channel.startTyping();
     msg.delete();
     msg.channel.send(msg.content)
         .catch(function (err) {
@@ -27,52 +26,37 @@ var say = function (msg) {
                     console.log("something fucked up")
                 })
         });
-    msg.channel.stopTyping();
 }
 
 var clean = function (msg) {
-    msg.channel.startTyping();
-    if (bot.isMod(msg.channel, msg.author)) {
-        lim = parseInt(msg.content);
-        msg.channel.fetchMessages({
-                limit: isNaN(lim) ? 100 : lim
+    lim = parseInt(msg.content);
+    msg.channel.fetchMessages({
+            limit: isNaN(lim) ? 100 : lim
+        })
+        .then(function (messages) {
+            var messages = messages.filter(function (s) {
+                return (s.author.id === bot.client.user.id || s.content.startsWith(bot.config.commandString))
             })
-            .then(function (messages) {
-                var messages = messages.filter(function (s) {
-                    return (s.author.id === bot.client.user.id || s.content.startsWith(bot.config.commandString))
-                })
-                msg.channel.bulkDelete(messages);
-                d = msg.reply("Deleted " + messages.size + " messages.");
-                msg.channel.stopTyping();
-            })
-            .catch(console.error);
-    } else {
-        msg.reply("You are not allowed to do that");
-        msg.channel.stopTyping();
-    }
+            msg.channel.bulkDelete(messages);
+            d = msg.reply("Deleted " + messages.size + " messages.");
+        })
+        .catch(console.error);
 }
 
-var purge = function (msg) {
-    msg.channel.startTyping();
+var purge = async function (msg) {
     if (bot.isMod(msg.channel, msg.author)) {
         lim = parseInt(msg.content) + 1;
         if (isNaN(lim)) {
             msg.reply("You need to specify a number of messages to purge.");
-            msg.channel.stopTyping();
             return;
         }
-        msg.channel.fetchMessages({
-                limit: lim
-            })
-            .then(function (messages) {
-                msg.channel.bulkDelete(messages);
-                d = msg.reply("Deleted " + messages.size + " messages.");
-                msg.channel.stopTyping();
-            })
-            .catch(console.error);
+        var messages = await msg.channel.fetchMessages({
+            limit: lim
+        })
+        msg.channel.bulkDelete(messages);
+        d = msg.reply("Deleted " + messages.size + " messages.");
     } else {
         msg.reply("You are not allowed to do that");
-        msg.channel.stopTyping();
     }
 }
 
