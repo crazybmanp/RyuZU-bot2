@@ -13,7 +13,7 @@ var listeners = {};
 
 var pjson = require('./package.json');
 const version = pjson.version;
-console.log("RyuZu "+version+" starting up.")
+console.log("RyuZu " + version + " starting up.")
 
 bot.listeners = listeners;
 bot.config = config;
@@ -23,12 +23,10 @@ bot.ready = false;
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}! Now readying up!`);
-  for(var cogName in loadedCogs)
-  {
+  for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
-    if(typeof cog.ready === 'function')
-    {
-      console.log("Readying "+cogName);
+    if (typeof cog.ready === 'function') {
+      console.log("Readying " + cogName);
       cog.ready();
     }
   }
@@ -45,20 +43,23 @@ client.on('ready', () => {
 
 client.on("guildCreate", guild => {
   console.log(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
-  for(var cogName in loadedCogs)
-  {
+  for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
-    if(typeof cog.newGuild === 'function')
-    {
-      console.log("Notifying "+cogName+" of new guild.");
+    if (typeof cog.newGuild === 'function') {
+      console.log("Notifying " + cogName + " of new guild.");
       cog.newGuild(guild);
     }
   }
 });
 
 client.on('message', msg => {
-  if(!bot.ready) {console.log("BOT RECIEVED MESSAGE BEFORE READY COMPLETED"); return;}
-  if(!msg.content.startsWith(config.commandString)){return; }
+  if (!bot.ready) {
+    console.log("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
+    return;
+  }
+  if (!msg.content.startsWith(config.commandString)) {
+    return;
+  }
   msg.content = msg.content.substr(config.commandString.length, msg.content.length);
   var command = msg.content.split(" ")[0];
   msg.content = msg.content.substr(command.length + 1, msg.content.length);
@@ -76,26 +77,26 @@ client.on('message', msg => {
   msg.channel.stopTyping();
 });
 
-bot.registerCommand = function(command, func){
+bot.registerCommand = function (command, func) {
   bot.listeners[command] = func;
 }
 
-bot.loadCog = function(cogname)
-{
-  if(cogname in loadedCogs){console.log(cogname + " is already loaded."); return;}
+bot.loadCog = function (cogname) {
+  if (cogname in loadedCogs) {
+    console.log(cogname + " is already loaded.");
+    return;
+  }
   try {
     var e = require(cogname);
-    if(Array.isArray(e.requires) && e.requires.length>0)
-    {
-      console.log("Module "+cogname+" requires: "+e.requires);
-      for(var i=0; i<e.requires.length; i++)
-      {
+    if (Array.isArray(e.requires) && e.requires.length > 0) {
+      console.log("Module " + cogname + " requires: " + e.requires);
+      for (var i = 0; i < e.requires.length; i++) {
         bot.loadCog(e.requires[i]);
       }
     }
-    console.log("setting up "+cogname);
+    console.log("setting up " + cogname);
     e.setup(bot);
-    loadedCogs[cogname]=e;
+    loadedCogs[cogname] = e;
     console.log(cogname + " loaded.");
   } catch (err) {
     console.log("failed to load " + cogname);
@@ -108,15 +109,17 @@ bot.loadCog = function(cogname)
 //-----------
 
 //register base commands
-bot.registerCommand("ping", function(msg){msg.reply('Pong!')});
+bot.registerCommand("ping", function (msg) {
+  msg.reply('Pong!')
+});
 
 //Load Core Cogs
-coreCogs.forEach(function(element) {
+coreCogs.forEach(function (element) {
   bot.loadCog(element);
 }, this);
 
 //Load Startup Cogs
-config.startupExtensions.forEach(function(element) {
+config.startupExtensions.forEach(function (element) {
   bot.loadCog(element);
 }, this);
 
