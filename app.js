@@ -36,7 +36,7 @@ client.on('ready', () => {
     status: "online",
     afk: false,
     game: {
-      name: config.gameMessage+"["+version+"]",
+      name: config.commandString + " " + config.gameMessage + "[" + version + "]",
     }
   }
   bot.client.user.setPresence(presence);
