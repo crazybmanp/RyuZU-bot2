@@ -69,7 +69,7 @@ client.on('message', msg => {
     try {
       fn(msg)
     } catch (error) {
-      console.log("Command error on input: " + msg.content);
+      console.log("Command error on input: " + msg.content + "\n Error: " + error);
     }
   } else {
     msg.reply("I don't know quite know what you want from me... [not a command]");
