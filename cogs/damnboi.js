@@ -61,10 +61,15 @@ var quotedamn = function (msg) {
     printQuote(msg, q);
 }
 
+var mix = function (msg) {
+    msg.channel.send(memeMe(msg.content));
+}
+
 var setup = function (b) {
     bot = b;
     bot.memeMe = memeMe;
     bot.registerCommand("damnboi", damn);
+    bot.registerCommand("mix", mix);
     bot.registerCommand("damnquote", quotedamn);
     bot.registerCommand("strokeout", quotedamn);
 }
