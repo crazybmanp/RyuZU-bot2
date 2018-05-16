@@ -60,3 +60,5 @@ typings/
 token.txt
 config.json
 databases/
+config/
+data/

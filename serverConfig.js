@@ -5,14 +5,18 @@ const configDir = "./config";
 var configs = {};
 
 var loadConfigLow = function (file) {
+    if (!fs.existsSync(file)) {
+        configs[file] = {};
+        return configs[file];
+    }
     db = require(file);
-    databases[file] = db;
+    configs[file] = db;
     return db;
 }
 
 var saveConfigLow = function (file, data) {
     configs[file] = JSON.parse(JSON.stringify(data));
-    fs.writeFile(file, configs[file]);
+    fs.writeFileSync(file, JSON.stringify(configs[file]));
 }
 
 var makeFileName = function (cogkey, server) {
