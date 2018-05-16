@@ -193,13 +193,15 @@ var newGuild = function (guild) {
 
 var GiveQuoteSupport = function (guild, num) {
     var db = server_db[guild.id];
+    var ret = {};
     if (num == null) {
-        return db.get('quotes').shuffle().head().value();
+        ret = db.get('quotes').shuffle().head().value();
     } else {
-        return db.get('quotes').find({
+        ret = db.get('quotes').find({
             id: num
         }).value();
     }
+    return JSON.parse(JSON.stringify(ret));
 }
 
 var setup = function (b) {
