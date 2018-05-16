@@ -1,4 +1,5 @@
 var lo = require("lodash");
+var schedule = require('node-schedule');
 var fs = require('fs');
 var bot = {};
 var server_cfg = {};
@@ -57,6 +58,25 @@ var config_enablelogging = function (msg) {
     saveOutConfig(msg.guild);
 };
 
+var stats = function () {
+    var servers = bot.client.guilds;
+    for (var mel of servers) {
+        var guild = {}
+        guild.id = mel[1].id;
+        cfg = getConfig(guild);
+        if (cfg.enabled) {
+            var uks = Object.keys(cfg.users);
+            for (var uk of uks) {
+                var user = cfg.users[uk];
+                user.freq = (user.freq * .9) + (user.messagesToday * .1);
+                user.messagesToday = 0;
+            }
+        }
+        cfg.lastStats = Date.now();
+        saveOutConfig(guild);
+    }
+}
+
 var ready = function () {
     console.log(cogkey + " - Mounting DBs");
     var servers = bot.client.guilds;
@@ -65,6 +85,7 @@ var ready = function () {
         guild.id = mel[1].id;
         getConfig(guild);
     }
+    schedule.scheduleJob('0 0 * * *', stats)
 }
 
 var newGuild = function (guild) {
