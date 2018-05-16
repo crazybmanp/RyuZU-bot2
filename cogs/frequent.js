@@ -34,12 +34,12 @@ var logListener = function (msg) {
         var dat = {};
         dat.user = msg.author.username + "#" + msg.author.discriminator;
         dat.freq = 0;
-        dat.messagesToday = 0;
+        dat.charactersToday = 0;
         dat.lastMesssage = Date.now();
         users[msg.author.id] = dat;
     }
     var user = users[msg.author.id];
-    user.messagesToday += 1;
+    user.charactersToday += msg.content.length;
     user.lastMesssage = Date.now();
 
     saveOutConfig(msg.guild);
@@ -68,8 +68,8 @@ var stats = function () {
             var uks = Object.keys(cfg.users);
             for (var uk of uks) {
                 var user = cfg.users[uk];
-                user.freq = (user.freq * .9) + (user.messagesToday * .1);
-                user.messagesToday = 0;
+                user.freq = (user.freq * .9) + (user.charactersToday * .1);
+                user.charactersToday = 0;
             }
         }
         cfg.lastStats = Date.now();
@@ -77,6 +77,7 @@ var stats = function () {
     }
 }
 
+var statjob = {};
 var ready = function () {
     console.log(cogkey + " - Mounting DBs");
     var servers = bot.client.guilds;
@@ -85,7 +86,7 @@ var ready = function () {
         guild.id = mel[1].id;
         getConfig(guild);
     }
-    schedule.scheduleJob('0 0 * * *', stats)
+    statjob = schedule.scheduleJob('0 0 * * *', stats);
 }
 
 var newGuild = function (guild) {
