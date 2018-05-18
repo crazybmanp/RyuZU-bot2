@@ -4,6 +4,7 @@ var fs = require('fs');
 var bot = {};
 var server_cfg = {};
 var cogkey = "frequent";
+var fs = require('fs');
 
 var getConfig = function (guild) {
     if (server_cfg[guild.id] == null) {
@@ -64,7 +65,7 @@ var config_enablelogging = function (msg) {
     saveOutConfig(msg.guild);
 };
 
-var stats = function () {
+var audit = function () {
     var servers = bot.client.guilds;
     for (var mel of servers) {
         var guild = {}
@@ -85,6 +86,58 @@ var stats = function () {
     }
 }
 
+var topStats = function (msg) {
+
+}
+
+var stats = function (msg) {
+    if (!bot.isMod(msg.channel, msg.author)) {
+        msg.reply("You are not allowed to do that");
+    }
+    uid = msg.guild.members.find(val => val.user.username.toLowerCase() == msg.content).id;
+    var users = getConfig(msg.guild).users;
+
+    user = users[uid];
+    const embed = {
+        "title": user.user,
+        "description": "User Stats",
+        "color": 9942527,
+        "timestamp": "2018-05-18T01:49:30.903Z",
+        "footer": {
+            "icon_url": "https://cdn.discordapp.com/embed/avatars/0.png",
+            "text": "Ryuzu Bot"
+        },
+        "fields": [{
+                "name": "Average Characters per Day",
+                "value": user.freq.toString(),
+                "inline": true
+            },
+            {
+                "name": "Characters Today",
+                "value": user.charactersToday.toString(),
+                "inline": true
+            },
+            {
+                "name": "Average Messages per Day",
+                "value": user.averageMessagesPerDay.toString(),
+                "inline": true
+            },
+            {
+                "name": "Messages Today",
+                "value": user.messagesToday.toString(),
+                "inline": true
+            },
+            {
+                "name": "Last Seen",
+                "value": user.lastMesssage.toString()
+            }
+        ]
+    };
+    msg.channel.send({
+        embed
+    });
+}
+
 var statjob = {};
 var ready = function () {
     console.log(cogkey + " - Mounting DBs");
@@ -94,7 +147,7 @@ var ready = function () {
         guild.id = mel[1].id;
         getConfig(guild);
     }
-    statjob = schedule.scheduleJob('0 0 * * *', stats);
+    statjob = schedule.scheduleJob('0 0 * * *', audit);
 }
 
 var newGuild = function (guild) {
@@ -105,6 +158,7 @@ var setup = function (b) {
     bot = b;
     bot.registerListener("frequent", logListener);
     bot.registerCommand("frequent.enable", config_enablelogging);
+    bot.registerCommand("frequent.stats", stats);
 };
 
 exports.requires = ["./serverConfig.js"];
