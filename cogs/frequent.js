@@ -34,12 +34,15 @@ var logListener = function (msg) {
         var dat = {};
         dat.user = msg.author.username + "#" + msg.author.discriminator;
         dat.freq = 0;
+        dat.averageMessagesPerDay = 0;
         dat.charactersToday = 0;
+        dat.messagesToday = 0;
         dat.lastMesssage = Date.now();
         users[msg.author.id] = dat;
     }
     var user = users[msg.author.id];
     user.charactersToday += msg.content.length;
+    user.messagesToday += 1;
     user.lastMesssage = Date.now();
 
     saveOutConfig(msg.guild);
@@ -72,7 +75,9 @@ var stats = function () {
             for (var uk of uks) {
                 var user = cfg.users[uk];
                 user.freq = (user.freq * .9) + (user.charactersToday * .1);
+                user.averageMessagesPerDay = (user.averageMessagesPerDay * .9) + (user.messagesToday * .1);
                 user.charactersToday = 0;
+                user.messagesToday = 0;
             }
         }
         cfg.lastStats = Date.now();
