@@ -53,6 +53,9 @@ var logListener = function (msg) {
 };
 
 var config_enablelogging = function (msg) {
+    if (!bot.isMod(msg.channel, msg.author)) {
+        msg.reply("You are not allowed to do that");
+    }
     var config = getConfig(msg.guild);
     config.enabled = (msg.content == "t");
     saveOutConfig(msg.guild);
