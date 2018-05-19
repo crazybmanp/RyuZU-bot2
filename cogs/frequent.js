@@ -6,6 +6,18 @@ var server_cfg = {};
 var cogkey = "frequent";
 var fs = require('fs');
 
+function round(number, precision) {
+    if (precision == null) {
+        precision = 0
+    }
+    var exponent = 0;
+    var shift = function (number, exponent) {
+        var numArray = ("" + number).split("e");
+        return +(numArray[0] + "e" + (numArray[1] ? (+numArray[1] + precision) : precision));
+    };
+    return shift(Math.round(shift(number, +exponent)), -exponent);
+}
+
 var getConfig = function (guild) {
     if (server_cfg[guild.id] == null) {
         server_cfg[guild.id] = bot.config.getConfig(cogkey, guild.id);
@@ -87,17 +99,30 @@ var audit = function () {
 }
 
 var topStats = function (msg) {
+    var users = getConfig(msg.guild).users;
+    var susers = [];
+    for (var u in users) {
+        susers.push(users[u]);
+    }
 
+    susers.sort(function (a, b) {
+        return b.freq - a.freq;
+    })
+
+    var m = "Top Users:"
+    for (var i = 0; i < susers.length; i++) {
+        m = m + "\n" + (i + 1).toString() + ": **" + susers[i].user + "**\t freq score: " + round(susers[i].freq);
+    }
+
+    msg.channel.send(m);
 }
 
 var stats = function (msg) {
-    if (!bot.isMod(msg.channel, msg.author)) {
-        msg.reply("You are not allowed to do that");
-    }
     uid = msg.guild.members.find(val => val.user.username.toLowerCase() == msg.content).id;
     var users = getConfig(msg.guild).users;
 
     user = users[uid];
+    var lastSeen = new Date(user.lastMesssage);
     const embed = {
         "title": user.user,
         "description": "User Stats",
@@ -109,7 +134,7 @@ var stats = function (msg) {
         },
         "fields": [{
                 "name": "Average Characters per Day",
-                "value": user.freq.toString(),
+                "value": round(user.freq).toString(),
                 "inline": true
             },
             {
@@ -119,7 +144,7 @@ var stats = function (msg) {
             },
             {
                 "name": "Average Messages per Day",
-                "value": user.averageMessagesPerDay.toString(),
+                "value": round(user.averageMessagesPerDay).toString(),
                 "inline": true
             },
             {
@@ -129,7 +154,7 @@ var stats = function (msg) {
             },
             {
                 "name": "Last Seen",
-                "value": user.lastMesssage.toString()
+                "value": lastSeen.toTimeString() + "\n" + lastSeen.toDateString()
             }
         ]
     };
@@ -157,8 +182,9 @@ var newGuild = function (guild) {
 var setup = function (b) {
     bot = b;
     bot.registerListener("frequent", logListener);
-    bot.registerCommand("frequent.enable", config_enablelogging);
-    bot.registerCommand("frequent.stats", stats);
+    bot.registerCommand("freq.enable", config_enablelogging);
+    bot.registerCommand("freq.stats", stats);
+    bot.registerCommand("freq.top", topStats);
 };
 
 exports.requires = ["./serverConfig.js"];
