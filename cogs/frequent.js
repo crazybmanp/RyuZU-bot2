@@ -59,13 +59,6 @@ var logListener = function (msg) {
     user.lastMesssage = Date.now();
 
     saveOutConfig(msg.guild);
-
-    var data = {}
-    data.content = msg.content;
-    data.author = msg.author.id;
-    data.user = msg.author.username + "#" + msg.author.discriminator;
-    data.time = msg.createdAt;
-    fs.appendFileSync('data/' + msg.guild.id + '.json', ",\n" + JSON.stringify(data));
 };
 
 var config_enablelogging = function (msg) {
@@ -92,6 +85,7 @@ var audit = function () {
                 user.charactersToday = 0;
                 user.messagesToday = 0;
             }
+            fs.appendFileSync('data/' + msg.guild.id + '.json', ",\n" + JSON.stringify(cfg));
         }
         cfg.lastStats = Date.now();
         saveOutConfig(guild);
