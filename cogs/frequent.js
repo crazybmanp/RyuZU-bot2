@@ -70,6 +70,14 @@ var config_enablelogging = function (msg) {
     saveOutConfig(msg.guild);
 };
 
+var forceaudit = function (msg) {
+    if (!bot.isMod(msg.channel, msg.author)) {
+        msg.reply("You are not allowed to do that");
+    }
+    msg.reply("forcing an audit to run right now");
+    audit();
+}
+
 var audit = function () {
     var servers = bot.client.guilds;
     for (var mel of servers) {
@@ -85,7 +93,7 @@ var audit = function () {
                 user.charactersToday = 0;
                 user.messagesToday = 0;
             }
-            fs.appendFileSync('data/' + msg.guild.id + '.json', ",\n" + JSON.stringify(cfg));
+            fs.appendFileSync('data/' + guild.id + '.json', ",\n" + JSON.stringify(cfg));
         }
         cfg.lastStats = Date.now();
         saveOutConfig(guild);
@@ -179,6 +187,7 @@ var setup = function (b) {
     bot.registerCommand("freq.enable", config_enablelogging);
     bot.registerCommand("freq.stats", stats);
     bot.registerCommand("freq.top", topStats);
+    bot.registerCommand("freq.forceaudit", forceaudit);
 };
 
 exports.requires = ["./serverConfig.js"];
