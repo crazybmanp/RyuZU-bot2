@@ -41,8 +41,15 @@ var logListener = function (msg) {
     if (!isEnabled(msg.guild)) {
         return;
     }
+    var config = getConfig(msg.guild);
 
-    var users = getConfig(msg.guild).users;
+    if (!(config.ignoreRole == null) && msg.member.roles.find("name", config.ignoreRole)) {
+        console.log("Not logging message");
+        return;
+    }
+    console.log("Logging message");
+
+    var users = config.users;
     if (users[msg.author.id] == null) {
         var dat = {};
         dat.user = msg.author.username + "#" + msg.author.discriminator;
@@ -68,6 +75,17 @@ var config_enablelogging = function (msg) {
     var config = getConfig(msg.guild);
     config.enabled = (msg.content == "t");
     saveOutConfig(msg.guild);
+    msg.reply("Bot enabled: " + config.enabled.toString());
+};
+
+var config_ignorerole = function (msg) {
+    if (!bot.isMod(msg.channel, msg.author)) {
+        msg.reply("You are not allowed to do that");
+    }
+    var config = getConfig(msg.guild);
+    config.ignoreRole = msg.content;
+    saveOutConfig(msg.guild);
+    msg.reply("Ignored role set to: " + config.ignoreRole.toString());
 };
 
 var forceaudit = function (msg) {
@@ -185,6 +203,7 @@ var setup = function (b) {
     bot = b;
     bot.registerListener("frequent", logListener);
     bot.registerCommand("freq.enable", config_enablelogging);
+    bot.registerCommand("freq.ignoredRole", config_ignorerole);
     bot.registerCommand("freq.stats", stats);
     bot.registerCommand("freq.top", topStats);
     bot.registerCommand("freq.forceaudit", forceaudit);
