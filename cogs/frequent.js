@@ -134,7 +134,7 @@ var topStats = function (msg) {
         m = m + "\n" + (i + 1).toString() + ": **" + susers[i].user + "**\t freq score: " + round(susers[i].freq);
     }
 
-    msg.channel.send(m);
+    bot.printLong(m);
 }
 
 var stats = function (msg) {
