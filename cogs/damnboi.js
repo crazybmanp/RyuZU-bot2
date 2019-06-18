@@ -72,6 +72,8 @@ var setup = function (b) {
     bot.registerCommand("mix", mix);
     bot.registerCommand("damnquote", quotedamn);
     bot.registerCommand("strokeout", quotedamn);
+    bot.registerCommand("sromkoot", quotedamn);
+    bot.registerCommand("stronkout", quotedamn);
 }
 
 exports.requires = [];
