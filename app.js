@@ -72,7 +72,7 @@ client.on('message', msg => {
       console.log("Command error on input: " + msg.content + "\n Error: " + error);
     }
   } else {
-    msg.reply("I don't know quite know what you want from me... [not a command]");
+    msg.reply("I don't quite know what you want from me... [not a command]");
   }
   msg.channel.stopTyping();
 });
