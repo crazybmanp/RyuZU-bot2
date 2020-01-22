@@ -4,7 +4,6 @@ var isOwner = function (author) {
     var fullname = author.username + "#" + author.discriminator;
     for (var i = 0; i < bot.config.owners.length; i++) {
         var owner = bot.config.owners[i]
-        console.log(owner + " : " + fullname)
         if (owner == fullname) {
             return true;
         }
@@ -21,9 +20,10 @@ var say = function (msg) {
     msg.delete();
     msg.channel.send(msg.content)
         .catch(function (err) {
+            bot.logger.error('Error sending a message', { err });
             msg.channel.send("I can't say that for some reason")
-                .catch(function () {
-                    console.log("something fucked up")
+                .catch(function (err) {
+                    bot.logger.error('Error sending message saying we had an error sending a message', { err });
                 })
         });
 }
@@ -40,7 +40,9 @@ var clean = function (msg) {
             msg.channel.bulkDelete(messages);
             d = msg.reply("Deleted " + messages.size + " messages.");
         })
-        .catch(console.error);
+        .catch(function(err) {
+            bot.logger.error("Error fetching messages", {err});
+        });
 }
 
 var purge = async function (msg) {

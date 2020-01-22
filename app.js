@@ -8,25 +8,29 @@ var contents = fs.readFileSync("config.json");
 var config = JSON.parse(contents);
 
 const coreCogs = ["./admin.js", "./util.js"]
-var loadedCogs = {};
+var loadedCogs = { "./logger.js": {} };
 var listeners = {};
+
+var loggerCog = require('./logger');
 
 var pjson = require('./package.json');
 const version = pjson.version;
-console.log("RyuZu " + version + " starting up.")
 
 bot.listeners = listeners;
 bot.config = config;
 bot.client = client;
 bot.loadedCogs = loadedCogs;
 bot.ready = false;
+loggerCog.preinit(bot);
+
+bot.logger.info("RyuZu " + version + " starting up.")
 
 client.on('ready', () => {
-  console.log(`Logged in as ${client.user.tag}! Now readying up!`);
+  bot.logger.info(`Logged in as ${client.user.tag}! Now readying up!`);
   for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
     if (typeof cog.ready === 'function') {
-      console.log("Readying " + cogName);
+      bot.logger.info("Readying " + cogName);
       cog.ready();
     }
   }
@@ -42,19 +46,19 @@ client.on('ready', () => {
 });
 
 client.on("guildCreate", guild => {
-  console.log(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
+  bot.logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
   for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
     if (typeof cog.newGuild === 'function') {
-      console.log("Notifying " + cogName + " of new guild.");
+      bot.logger.info("Notifying " + cogName + " of new guild.");
       cog.newGuild(guild);
     }
   }
 });
 
-client.on('message', msg => {
+client.on('message', async msg => {
   if (!bot.ready) {
-    console.log("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
+    bot.logger.warn("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
     return;
   }
   if (!msg.content.startsWith(config.commandString)) {
@@ -67,9 +71,12 @@ client.on('message', msg => {
   msg.channel.startTyping();
   if (typeof fn === 'function') {
     try {
-      fn(msg)
+      let ret = fn(msg);
+      if (ret.then) {
+        await ret;
+      }
     } catch (error) {
-      console.log("Command error on input: " + msg.content + "\n Error: " + error);
+      bot.logger.error("Command error on input: " + msg.content, { error });
     }
   } else {
     msg.reply("I don't quite know what you want from me... [not a command]");
@@ -83,23 +90,21 @@ bot.registerCommand = function (command, func) {
 
 bot.loadCog = function (cogname) {
   if (cogname in loadedCogs) {
-    console.log(cogname + " is already loaded.");
     return;
   }
   try {
     var e = require(cogname);
     if (Array.isArray(e.requires) && e.requires.length > 0) {
-      console.log("Module " + cogname + " requires: " + e.requires);
+      bot.logger.info("Module " + cogname + " requires: " + e.requires);
       for (var i = 0; i < e.requires.length; i++) {
         bot.loadCog(e.requires[i]);
       }
     }
-    console.log("setting up " + cogname);
+    bot.logger.info("Loading " + cogname + "...");
     e.setup(bot);
     loadedCogs[cogname] = e;
-    console.log(cogname + " loaded.");
   } catch (err) {
-    console.log("failed to load " + cogname);
+    bot.logger.error("Failed to load " + cogname, {err: err});
     process.exit();
   }
 }
@@ -109,8 +114,8 @@ bot.loadCog = function (cogname) {
 //-----------
 
 //register base commands
-bot.registerCommand("ping", function (msg) {
-  msg.reply('Pong!')
+bot.registerCommand("ping", async function (msg) {
+  await msg.reply('Pong!');
 });
 
 //Load Core Cogs
