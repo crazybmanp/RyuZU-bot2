@@ -13,7 +13,10 @@ var listeners = {};
 
 var pjson = require('./package.json');
 const version = pjson.version;
-console.log("RyuZu " + version + " starting up.")
+
+var logger = require('./logger');
+
+logger.info("RyuZu " + version + " starting up.")
 
 bot.listeners = listeners;
 bot.config = config;
@@ -22,11 +25,11 @@ bot.loadedCogs = loadedCogs;
 bot.ready = false;
 
 client.on('ready', () => {
-  console.log(`Logged in as ${client.user.tag}! Now readying up!`);
+  logger.info(`Logged in as ${client.user.tag}! Now readying up!`);
   for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
     if (typeof cog.ready === 'function') {
-      console.log("Readying " + cogName);
+      logger.info("Readying " + cogName);
       cog.ready();
     }
   }
@@ -42,11 +45,11 @@ client.on('ready', () => {
 });
 
 client.on("guildCreate", guild => {
-  console.log(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
+  logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
   for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
     if (typeof cog.newGuild === 'function') {
-      console.log("Notifying " + cogName + " of new guild.");
+      logger.info("Notifying " + cogName + " of new guild.");
       cog.newGuild(guild);
     }
   }
@@ -54,7 +57,7 @@ client.on("guildCreate", guild => {
 
 client.on('message', msg => {
   if (!bot.ready) {
-    console.log("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
+    logger.warn("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
     return;
   }
   if (!msg.content.startsWith(config.commandString)) {
@@ -69,7 +72,7 @@ client.on('message', msg => {
     try {
       fn(msg)
     } catch (error) {
-      console.log("Command error on input: " + msg.content + "\n Error: " + error);
+      logger.error("Command error on input: " + msg.content, { error });
     }
   } else {
     msg.reply("I don't quite know what you want from me... [not a command]");
@@ -83,23 +86,21 @@ bot.registerCommand = function (command, func) {
 
 bot.loadCog = function (cogname) {
   if (cogname in loadedCogs) {
-    console.log(cogname + " is already loaded.");
     return;
   }
   try {
     var e = require(cogname);
     if (Array.isArray(e.requires) && e.requires.length > 0) {
-      console.log("Module " + cogname + " requires: " + e.requires);
+      logger.info("Module " + cogname + " requires: " + e.requires);
       for (var i = 0; i < e.requires.length; i++) {
         bot.loadCog(e.requires[i]);
       }
     }
-    console.log("setting up " + cogname);
+    logger.info("Loading " + cogname + "...");
     e.setup(bot);
     loadedCogs[cogname] = e;
-    console.log(cogname + " loaded.");
   } catch (err) {
-    console.log("failed to load " + cogname);
+    logger.error("failed to load " + cogname);
     process.exit();
   }
 }
