@@ -1,4 +1,3 @@
-var logger = require("../logger");
 var bot = {};
 var server_db = {};
 var subcommands = {};
