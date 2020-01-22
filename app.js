@@ -104,7 +104,7 @@ bot.loadCog = function (cogname) {
     e.setup(bot);
     loadedCogs[cogname] = e;
   } catch (err) {
-    bot.logger.error("Failed to load " + cogname);
+    bot.logger.error("Failed to load " + cogname, {err: err});
     process.exit();
   }
 }
