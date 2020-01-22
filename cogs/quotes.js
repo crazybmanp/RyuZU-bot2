@@ -168,12 +168,12 @@ var quoteHandler = function (msg) {
 }
 
 var ready = function () {
-    logger.info("Quote - Mounting DBs");
+    bot.logger.info("Quote - Mounting DBs");
     server_db = bot.getAllCogDBs("quotes");
     for (var dbname in server_db) {
         db = server_db[dbname];
         if (!db.has('quotes').value()) {
-            logger.info("Setting up new server");
+            bot.logger.info("Setting up new server");
             db.defaults({
                 quotes: [],
                 nextID: 0

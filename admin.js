@@ -1,4 +1,3 @@
-var logger = require('./logger');
 var bot = {};
 
 var isOwner = function (author) {
@@ -21,10 +20,10 @@ var say = function (msg) {
     msg.delete();
     msg.channel.send(msg.content)
         .catch(function (err) {
-            logger.error('Error sending message: ' + err);
+            bot.logger.error('Error sending message: ' + err);
             msg.channel.send("I can't say that for some reason")
                 .catch(function (err) {
-                    logger.error('Error sending message: ' + err);
+                    bot.logger.error('Error sending message: ' + err);
                 })
         });
 }
@@ -42,7 +41,7 @@ var clean = function (msg) {
             d = msg.reply("Deleted " + messages.size + " messages.");
         })
         .catch(function(err) {
-            logger.error("Error fetching messages", {err});
+            bot.logger.error("Error fetching messages", {err});
         });
 }
 

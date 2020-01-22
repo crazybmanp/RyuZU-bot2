@@ -22,6 +22,7 @@ You may wish to have more in this file depending on what cogs you are using.
 * *commandString*: A string that contains what character the bot uses for commands. This is **required** for the bot to do anything.
 * *gameMessage*: The message to show alongside the version number in the bot's status
 * *issuesPage*: A link to the relavent page to report issues to (provided for self-hosted, modified versions).
+* *stackdriverName*: The logName for logs sent to Google Stackdriver
 * *devMode*: Optional. Signifies that the bot is in development mode.
 
 Even if you don't plan on using the *owners* or any extensions, you should include an empty array for those values.

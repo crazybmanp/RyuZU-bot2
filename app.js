@@ -8,28 +8,29 @@ var contents = fs.readFileSync("config.json");
 var config = JSON.parse(contents);
 
 const coreCogs = ["./admin.js", "./util.js"]
-var loadedCogs = {};
+var loadedCogs = { "./logger.js": {} };
 var listeners = {};
+
+var loggerCog = require('./logger');
 
 var pjson = require('./package.json');
 const version = pjson.version;
-
-var logger = require('./logger');
-
-logger.info("RyuZu " + version + " starting up.")
 
 bot.listeners = listeners;
 bot.config = config;
 bot.client = client;
 bot.loadedCogs = loadedCogs;
 bot.ready = false;
+loggerCog.preinit(bot);
+
+bot.logger.info("RyuZu " + version + " starting up.")
 
 client.on('ready', () => {
-  logger.info(`Logged in as ${client.user.tag}! Now readying up!`);
+  bot.logger.info(`Logged in as ${client.user.tag}! Now readying up!`);
   for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
     if (typeof cog.ready === 'function') {
-      logger.info("Readying " + cogName);
+      bot.logger.info("Readying " + cogName);
       cog.ready();
     }
   }
@@ -45,11 +46,11 @@ client.on('ready', () => {
 });
 
 client.on("guildCreate", guild => {
-  logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
+  bot.logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
   for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
     if (typeof cog.newGuild === 'function') {
-      logger.info("Notifying " + cogName + " of new guild.");
+      bot.logger.info("Notifying " + cogName + " of new guild.");
       cog.newGuild(guild);
     }
   }
@@ -57,7 +58,7 @@ client.on("guildCreate", guild => {
 
 client.on('message', async msg => {
   if (!bot.ready) {
-    logger.warn("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
+    bot.logger.warn("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
     return;
   }
   if (!msg.content.startsWith(config.commandString)) {
@@ -75,7 +76,7 @@ client.on('message', async msg => {
         await ret;
       }
     } catch (error) {
-      logger.error("Command error on input: " + msg.content, { error });
+      bot.logger.error("Command error on input: " + msg.content, { error });
     }
   } else {
     msg.reply("I don't quite know what you want from me... [not a command]");
@@ -94,16 +95,16 @@ bot.loadCog = function (cogname) {
   try {
     var e = require(cogname);
     if (Array.isArray(e.requires) && e.requires.length > 0) {
-      logger.info("Module " + cogname + " requires: " + e.requires);
+      bot.logger.info("Module " + cogname + " requires: " + e.requires);
       for (var i = 0; i < e.requires.length; i++) {
         bot.loadCog(e.requires[i]);
       }
     }
-    logger.info("Loading " + cogname + "...");
+    bot.logger.info("Loading " + cogname + "...");
     e.setup(bot);
     loadedCogs[cogname] = e;
   } catch (err) {
-    logger.error("Failed to load " + cogname);
+    bot.logger.error("Failed to load " + cogname);
     process.exit();
   }
 }

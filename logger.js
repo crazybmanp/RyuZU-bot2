@@ -1,19 +1,31 @@
 const bunyan = require('bunyan');
 const LoggingBunyan = require('@google-cloud/logging-bunyan').LoggingBunyan;
 
-const lb = new LoggingBunyan({
-  logName: 'ryuzu'
-});
+var bot = {};
 
-const streams = [
-  {
-    stream: process.stdout,
-    level: 'info'
-  },
-  lb.stream('info')
-]
+var preinit = function (b) {
+  bot = b;
 
-module.exports = bunyan.createLogger({
-  name: 'RyuZU2',
-  streams
-});
+  const lb = new LoggingBunyan({
+    logName: bot.config.stackdriverName ? bot.config.stackdriverName : 'ryuzu',
+  });
+  
+  const streams = [
+    {
+      stream: process.stdout,
+      level: 'info'
+    },
+  ];
+
+  if (!bot.config.devMode) {
+    streams.push(lb.stream('info'));
+  }
+
+  bot.logger = bunyan.createLogger({
+    name: 'RyuZU2',
+    streams
+  });
+}
+
+exports.requires = [];
+exports.preinit = preinit;
