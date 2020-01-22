@@ -20,10 +20,10 @@ var say = function (msg) {
     msg.delete();
     msg.channel.send(msg.content)
         .catch(function (err) {
-            bot.logger.error('Error sending message: ' + err);
+            bot.logger.error('Error sending a message', { err });
             msg.channel.send("I can't say that for some reason")
                 .catch(function (err) {
-                    bot.logger.error('Error sending message: ' + err);
+                    bot.logger.error('Error sending message saying we had an error sending a message', { err });
                 })
         });
 }
