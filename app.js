@@ -55,7 +55,7 @@ client.on("guildCreate", guild => {
   }
 });
 
-client.on('message', msg => {
+client.on('message', async msg => {
   if (!bot.ready) {
     logger.warn("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
     return;
@@ -70,7 +70,10 @@ client.on('message', msg => {
   msg.channel.startTyping();
   if (typeof fn === 'function') {
     try {
-      fn(msg)
+      let ret = fn(msg);
+      if (ret.then) {
+        await ret;
+      }
     } catch (error) {
       logger.error("Command error on input: " + msg.content, { error });
     }
@@ -100,7 +103,7 @@ bot.loadCog = function (cogname) {
     e.setup(bot);
     loadedCogs[cogname] = e;
   } catch (err) {
-    logger.error("failed to load " + cogname);
+    logger.error("Failed to load " + cogname);
     process.exit();
   }
 }
@@ -110,8 +113,8 @@ bot.loadCog = function (cogname) {
 //-----------
 
 //register base commands
-bot.registerCommand("ping", function (msg) {
-  msg.reply('Pong!')
+bot.registerCommand("ping", async function (msg) {
+  await msg.reply('Pong!');
 });
 
 //Load Core Cogs
