@@ -2,7 +2,23 @@ var fs = require("fs");
 
 var bot = {};
 const Discord = require("discord.js");
-var client = new Discord.Client();
+var client = new Discord.Client({ intents: [
+"GUILDS",
+"GUILD_MEMBERS",
+"GUILD_BANS",
+"GUILD_EMOJIS_AND_STICKERS",
+"GUILD_INTEGRATIONS",
+"GUILD_WEBHOOKS",
+"GUILD_INVITES",
+"GUILD_VOICE_STATES",
+"GUILD_PRESENCES",
+"GUILD_MESSAGES",
+"GUILD_MESSAGE_REACTIONS",
+"GUILD_MESSAGE_TYPING",
+"DIRECT_MESSAGES",
+"DIRECT_MESSAGE_REACTIONS",
+"DIRECT_MESSAGE_TYPING",
+] });
 
 var contents = fs.readFileSync("config.json");
 var config = JSON.parse(contents);
@@ -25,24 +41,21 @@ loggerCog.preinit(bot);
 
 bot.logger.info("RyuZu " + version + " starting up.")
 
-client.on('ready', () => {
+client.on('ready', async () => {
   bot.logger.info(`Logged in as ${client.user.tag}! Now readying up!`);
   for (var cogName in loadedCogs) {
     cog = loadedCogs[cogName];
     if (typeof cog.ready === 'function') {
       bot.logger.info("Readying " + cogName);
-      cog.ready();
+      await cog.ready();
     }
   }
   var presence = {
-    status: "online",
-    afk: false,
-    game: {
-      name: config.commandString + " " + config.gameMessage + "[" + version + "]",
-    }
+    name: config.commandString + " " + config.gameMessage + "[" + version + "]"
   }
-  bot.client.user.setPresence(presence);
+  bot.client.user.setActivity(presence);
   bot.ready = true;
+  bot.logger.info("RyuZu " + version + " ready!");
 });
 
 client.on("guildCreate", guild => {
@@ -68,11 +81,11 @@ client.on('message', async msg => {
   var command = msg.content.split(" ")[0];
   msg.content = msg.content.substr(command.length + 1, msg.content.length);
   var fn = listeners[command];
-  msg.channel.startTyping();
+  msg.channel.sendTyping();
   if (typeof fn === 'function') {
     try {
       let ret = fn(msg);
-      if (ret.then) {
+      if (ret?.then??false) {
         await ret;
       }
     } catch (error) {
@@ -81,7 +94,7 @@ client.on('message', async msg => {
   } else {
     msg.reply("I don't quite know what you want from me... [not a command]");
   }
-  msg.channel.stopTyping();
+  
 });
 
 bot.registerCommand = function (command, func) {
