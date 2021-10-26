@@ -1,0 +1,19 @@
+{
+		"files.exclude": {
+				"**/*.js": {
+						"when": "$(basename).ts"
+				},
+				"**/*.jsx": {
+						"when": "$(basename).tsx"
+				},
+				"**/*.js.map": {
+						"when": "$(basename)"
+				}
+		},
+		"editor.insertSpaces": false,
+		"editor.detectIndentation": false,
+		"editor.tabSize": 2,
+		"editor.formatOnType": true,
+		"files.trimTrailingWhitespace": true,
+		"git.confirmSync": true,
+}
