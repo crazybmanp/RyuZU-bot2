@@ -166,9 +166,9 @@ var quoteHandler = function (msg) {
     }
 }
 
-var ready = function () {
+var ready = async function () {
     bot.logger.info("Quote - Mounting DBs");
-    server_db = bot.getAllCogDBs("quotes");
+    server_db = await bot.getAllCogDBs("quotes");
     for (var dbname in server_db) {
         db = server_db[dbname];
         if (!db.has('quotes').value()) {

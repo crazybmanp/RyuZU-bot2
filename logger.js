@@ -13,7 +13,7 @@ var preinit = function (b) {
   const streams = [
     {
       stream: process.stdout,
-      level: 'info'
+      level: bot.config.devMode ? 'debug' : 'info'
     },
   ];
 

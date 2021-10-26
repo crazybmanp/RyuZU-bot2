@@ -42,11 +42,11 @@ var getCogDB = function (cogkey, server) {
     return getDB(file);
 }
 
-var getAllCogDBs = function (cogkey) {
+var getAllCogDBs = async function (cogkey) {
     var dbs = {};
-    var servers = bot.client.guilds;
-    for (var mel of servers) {
-        guildid = mel[1].id;
+    var servers = await bot.client.guilds.fetch();
+    for (var [id, mel] of servers) {
+        guildid = mel.id;
         dbs[guildid] = getCogDB(cogkey, guildid);
     }
     return dbs;
