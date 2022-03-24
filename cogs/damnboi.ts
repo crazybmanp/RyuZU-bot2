@@ -1,20 +1,21 @@
-var _meme_msg = "oh yeah damn damn boi DAMN BOI HE THICC BOI THAT'S A THICC ASS BOI DAMN";
-var bot = {};
+let memeMsg: string = 'oh yeah damn damn boi DAMN BOI HE THICC BOI THAT\'S A THICC ASS BOI DAMN';
+import { Bot } from '../app';
 
+let bot: Bot;
 
-var memeMe = function (msg) {
-    var arr = msg.toString().split(' ');
+let memeMe = function (msg) {
+    let arr = msg.toString().split(' ');
     _shuffle(arr);
     return arr.join(' ');
-}
+};
 
-var damn = function (msg) {
-    msg.channel.send(memeMe(_meme_msg));
-}
+let damn = function (msg) {
+    msg.channel.send(memeMe(memeMsg));
+};
 
-//Shamelessly stolen from stack overflow
+// Shamelessly stolen from stack overflow
 function _shuffle(array) {
-    var currentIndex = array.length,
+    let currentIndex = array.length,
         temporaryValue, randomIndex;
 
     // While there remain elements to shuffle...
@@ -33,48 +34,48 @@ function _shuffle(array) {
     return array;
 }
 
-var constructQuote = function (quote) {
-    return quote.id + "(" + quote.category + "): " + quote.quote;
-}
+let constructQuote = function (quote) {
+    return quote.id + '(' + quote.category + '): ' + quote.quote;
+};
 
-var printQuote = function (msg, quote) {
+let printQuote = function (msg, quote) {
     msg.channel.send(constructQuote(quote));
-}
+};
 
-var quotedamn = function (msg) {
-    var q;
+let quotedamn = function (msg) {
+    let q;
     if (msg.content.length > 0) {
-        num = parseInt(msg.content);
+        let num: number = parseInt(msg.content);
         if (isNaN(num)) {
-            msg.reply("You need to give a quote number in order to get a quote");
+            msg.reply('You need to give a quote number in order to get a quote');
             return;
         }
-        q = bot.giveQuote(msg.guild, num)
+        q = bot.giveQuote(msg.guild, num);
         if (typeof q === 'undefined') {
-            msg.reply("Quote not found.");
+            msg.reply('Quote not found.');
             return;
         }
     } else {
-        q = bot.giveQuote(msg.guild)
+        q = bot.giveQuote(msg.guild);
     }
     q.quote = memeMe(q.quote);
     printQuote(msg, q);
-}
+};
 
-var mix = function (msg) {
+let mix = function (msg) {
     msg.channel.send(memeMe(msg.content));
-}
+};
 
-var setup = function (b) {
+let setup = function (b) {
     bot = b;
     bot.memeMe = memeMe;
-    bot.registerCommand("damnboi", damn);
-    bot.registerCommand("mix", mix);
-    bot.registerCommand("damnquote", quotedamn);
-    bot.registerCommand("strokeout", quotedamn);
-    bot.registerCommand("sromkoot", quotedamn);
-    bot.registerCommand("stronkout", quotedamn);
-}
+    bot.registerCommand('damnboi', damn);
+    bot.registerCommand('mix', mix);
+    bot.registerCommand('damnquote', quotedamn);
+    bot.registerCommand('strokeout', quotedamn);
+    bot.registerCommand('sromkoot', quotedamn);
+    bot.registerCommand('stronkout', quotedamn);
+};
 
 exports.requires = [];
 exports.setup = setup;

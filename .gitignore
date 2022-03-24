@@ -57,6 +57,9 @@ typings/
 # dotenv environment variables file
 .env
 
+*.js
+*.map
+
 token.txt
 config.json
 databases/

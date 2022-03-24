@@ -1,145 +1,173 @@
-var fs = require("fs");
+import Discord, { Client, Presence, Game, PresenceData, Message } from 'discord.js';
+let fs = require('fs');
+require('source-map-support').install();
 
-var bot = {};
-const Discord = require("discord.js");
-var client = new Discord.Client({ intents: [
-"GUILDS",
-"GUILD_MEMBERS",
-"GUILD_BANS",
-"GUILD_EMOJIS_AND_STICKERS",
-"GUILD_INTEGRATIONS",
-"GUILD_WEBHOOKS",
-"GUILD_INVITES",
-"GUILD_VOICE_STATES",
-"GUILD_PRESENCES",
-"GUILD_MESSAGES",
-"GUILD_MESSAGE_REACTIONS",
-"GUILD_MESSAGE_TYPING",
-"DIRECT_MESSAGES",
-"DIRECT_MESSAGE_REACTIONS",
-"DIRECT_MESSAGE_TYPING",
-] });
+export interface Cog {
+	requires: string[];
 
-var contents = fs.readFileSync("config.json");
-var config = JSON.parse(contents);
-
-const coreCogs = ["./admin.js", "./util.js"]
-var loadedCogs = { "./logger.js": {} };
-var listeners = {};
-
-var loggerCog = require('./logger');
-
-var pjson = require('./package.json');
-const version = pjson.version;
-
-bot.listeners = listeners;
-bot.config = config;
-bot.client = client;
-bot.loadedCogs = loadedCogs;
-bot.ready = false;
-loggerCog.preinit(bot);
-
-bot.logger.info("RyuZu " + version + " starting up.")
-
-client.on('ready', async () => {
-  bot.logger.info(`Logged in as ${client.user.tag}! Now readying up!`);
-  for (var cogName in loadedCogs) {
-    cog = loadedCogs[cogName];
-    if (typeof cog.ready === 'function') {
-      bot.logger.info("Readying " + cogName);
-      await cog.ready();
-    }
-  }
-  var presence = {
-    name: config.commandString + " " + config.gameMessage + "[" + version + "]"
-  }
-  bot.client.user.setActivity(presence);
-  bot.ready = true;
-  bot.logger.info("RyuZu " + version + " ready!");
-});
-
-client.on("guildCreate", guild => {
-  bot.logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
-  for (var cogName in loadedCogs) {
-    cog = loadedCogs[cogName];
-    if (typeof cog.newGuild === 'function') {
-      bot.logger.info("Notifying " + cogName + " of new guild.");
-      cog.newGuild(guild);
-    }
-  }
-});
-
-client.on('message', async msg => {
-  if (!bot.ready) {
-    bot.logger.warn("BOT RECIEVED MESSAGE BEFORE READY COMPLETED");
-    return;
-  }
-  if (!msg.content.startsWith(config.commandString)) {
-    return;
-  }
-  msg.content = msg.content.substr(config.commandString.length, msg.content.length);
-  var command = msg.content.split(" ")[0];
-  msg.content = msg.content.substr(command.length + 1, msg.content.length);
-  var fn = listeners[command];
-  msg.channel.sendTyping();
-  if (typeof fn === 'function') {
-    try {
-      let ret = fn(msg);
-      if (ret?.then??false) {
-        await ret;
-      }
-    } catch (error) {
-      bot.logger.error("Command error on input: " + msg.content, { error });
-    }
-  } else {
-    msg.reply("I don't quite know what you want from me... [not a command]");
-  }
-  
-});
-
-bot.registerCommand = function (command, func) {
-  bot.listeners[command] = func;
+	setup: (bot: Bot) => void;
+	preinit?: (bot: Bot) => void;
+	ready: () => void;
+	newGuild: (guild: Discord.Guild) => void;
 }
 
-bot.loadCog = function (cogname) {
-  if (cogname in loadedCogs) {
-    return;
-  }
-  try {
-    var e = require(cogname);
-    if (Array.isArray(e.requires) && e.requires.length > 0) {
-      bot.logger.info("Module " + cogname + " requires: " + e.requires);
-      for (var i = 0; i < e.requires.length; i++) {
-        bot.loadCog(e.requires[i]);
-      }
-    }
-    bot.logger.info("Loading " + cogname + "...");
-    e.setup(bot);
-    loadedCogs[cogname] = e;
-  } catch (err) {
-    bot.logger.error("Failed to load " + cogname, {err: err});
-    process.exit();
-  }
+export class Bot {
+	constructor(configFile: string) {
+		this.ready = false;
+		this.loadedCogs = {};
+		this.listeners = {};
+		let pjson = require('./package.json');
+		this.version = pjson.version;
+
+		bot.logger.info("RyuZu " + this.version + " starting up.");
+
+		this.client = new Discord.Client({
+			intents: [
+				"GUILDS",
+				"GUILD_MEMBERS",
+				"GUILD_BANS",
+				"GUILD_EMOJIS_AND_STICKERS",
+				"GUILD_INTEGRATIONS",
+				"GUILD_WEBHOOKS",
+				"GUILD_INVITES",
+				"GUILD_VOICE_STATES",
+				"GUILD_PRESENCES",
+				"GUILD_MESSAGES",
+				"GUILD_MESSAGE_REACTIONS",
+				"GUILD_MESSAGE_TYPING",
+				"DIRECT_MESSAGES",
+				"DIRECT_MESSAGE_REACTIONS",
+				"DIRECT_MESSAGE_TYPING",
+			]
+		});
+
+		const contents = fs.readFileSync(configFile);
+		this.config = JSON.parse(contents);
+
+		let loggerCog: Cog = require('./logger');
+		this.loadedCogs['./logger.js'] = loggerCog;
+		loggerCog.preinit(this);
+	}
+
+	listeners: { [key: string]: (msg: Message) => void };
+	config: { [key: string]: any };
+	client: Client;
+	loadedCogs: { [key: string]: Cog };
+	ready: boolean;
+	version: string;
+
+	logger: Logger;
+
+	registerCommand(command, func) {
+		this.listeners[command] = func;
+	}
+
+	loadCog(cogname: string) {
+		if (cogname in this.loadedCogs) {
+			return;
+		}
+		try {
+			let e: Cog = require(cogname);
+			if (Array.isArray(e.requires) && e.requires.length > 0) {
+				this.logger.info('Module ' + cogname + ' requires: ' + e.requires);
+				for (let i = 0; i < e.requires.length; i++) {
+					this.loadCog(e.requires[i]);
+				}
+			}
+			this.logger.info('Loading ' + cogname + '...');
+			e.setup(bot);
+			this.loadedCogs[cogname] = e;
+		} catch (err) {
+			this.logger.error('Failed to load ' + cogname, { err: err });
+			process.exit();
+		}
+	}
+
+	[key: string]: any;
 }
 
-//-----------
-//Begin Setup
-//-----------
+export interface Logger {
+	info: (message: string | {}, ...args: any[]) => void;
+	warn: (message: string | {}, ...args: any[]) => void;
+	error: (message: string | {}, ...args: any[]) => void;
+}
 
-//register base commands
-bot.registerCommand("ping", async function (msg) {
-  await msg.reply('Pong!');
+const coreCogs = ['./admin.js', './util.js'];
+
+let bot = new Bot('config.json');
+
+bot.logger.info('RyuZu ' + bot.version + ' starting up.');
+
+bot.client.on('ready', () => {
+	bot.logger.info(`Logged in as ${bot.client.user.tag}! Now readying up!`);
+	for (let cogName in bot.loadedCogs) {
+		let cog = bot.loadedCogs[cogName];
+		if (typeof cog.ready === 'function') {
+			bot.logger.info('Readying ' + cogName);
+			cog.ready();
+		}
+	}
+	let presence: PresenceData = {
+		name: bot.config.commandString + ' ' + bot.config.gameMessage + '[' + bot.version + ']',
+	};
+	bot.client.user.setPresence(presence);
+	bot.ready = true;
+	bot.logger.info("RyuZu " + version + " ready!");
 });
 
-//Load Core Cogs
+bot.client.on('guildCreate', guild => {
+	bot.logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
+	for (let cogName in bot.loadedCogs) {
+		let cog = bot.loadedCogs[cogName];
+		if (typeof cog.newGuild === 'function') {
+			bot.logger.info('Notifying ' + cogName + ' of new guild.');
+			cog.newGuild(guild);
+		}
+	}
+});
+
+bot.client.on('message', async msg => {
+	if (!bot.ready) {
+		bot.logger.warn('BOT RECIEVED MESSAGE BEFORE READY COMPLETED');
+		return;
+	}
+	if (!msg.content.startsWith(bot.config.commandString)) {
+		return;
+	}
+	msg.content = msg.content.substr(bot.config.commandString.length, msg.content.length);
+	let command = msg.content.split(' ')[0];
+	msg.content = msg.content.substr(command.length + 1, msg.content.length);
+	let fn = bot.listeners[command];
+	msg.channel.sendTyping();
+	if (typeof fn === 'function') {
+		try {
+			await fn(msg);
+		} catch (error) {
+			bot.logger.error('Command error on input: ' + msg.content, { error });
+		}
+	} else {
+		msg.reply('I don\'t quite know what you want from me... [not a command]');
+	}
+});
+
+// -----------
+// Begin Setup
+// -----------
+
+// register base commands
+bot.registerCommand('ping', async function (msg) {
+	await msg.reply('Pong!');
+});
+
+// Load Core Cogs
 coreCogs.forEach(function (element) {
-  bot.loadCog(element);
+	bot.loadCog(element);
 }, this);
 
-//Load Startup Cogs
-config.startupExtensions.forEach(function (element) {
-  bot.loadCog(element);
+// Load Startup Cogs
+bot.config.startupExtensions.forEach(function (element) {
+	bot.loadCog(element);
 }, this);
 
-//start the client
-client.login(config.token);
+// start the client
+bot.client.login(bot.config.token);

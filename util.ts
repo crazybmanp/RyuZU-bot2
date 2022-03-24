@@ -1,26 +1,28 @@
-var bot = {};
+import { Bot } from './app';
 
-var printLong = function (channel, items) {
-    var messageList = [];
-    var curMessage = "";
-    for (var i = 0; i < items.length; i++) {
+let bot: Bot;
+
+let printLong = function (channel, items) {
+    let messageList = [];
+    let curMessage = '';
+    for (let i = 0; i < items.length; i++) {
         if (curMessage.length + items[i].length > 2000) {
             messageList.push(curMessage);
-            curMessage = "";
+            curMessage = '';
         }
         curMessage += items[i];
     }
     messageList.push(curMessage);
 
-    for (var i = 0; i < messageList.length; i++) {
+    for (let i = 0; i < messageList.length; i++) {
         channel.send(messageList[i]);
     }
-}
+};
 
-var setup = function (b) {
+let setup = function (b) {
     bot = b;
     bot.printLong = printLong;
-}
+};
 
 exports.requires = [];
 exports.setup = setup;
