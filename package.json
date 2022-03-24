@@ -3,21 +3,24 @@
   "version": "2.2.2",
   "description": "A module based discord bot",
   "main": "app.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon app.js | bunyan"
   },
   "author": "Crazybmanp",
-  "license": "All rights reserved",
+  "license": "MIT",
   "engines": {
     "node": ">=16.6.0"
   },
   "dependencies": {
-    "@google-cloud/logging-bunyan": "^3.1.1",
+    "@google-cloud/logging-bunyan": "^3.3.0",
     "bunyan": "^1.8.12",
     "discord.js": "^13.2.0",
     "lodash": "^4.17.21",
-    "lowdb": "^1.0.0"
+    "lowdb": "^1.0.0",
+    "pg": "^8.7.3",
+    "typeorm": "^0.3.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.14"
