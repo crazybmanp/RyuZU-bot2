@@ -168,7 +168,7 @@ var quoteHandler = function (msg) {
 
 var ready = async function () {
     bot.logger.info("Quote - Mounting DBs");
-    server_db = await bot.getAllCogDBs("quotes");
+    server_db = await bot.db.getAllCogDBs("quotes");
     for (var dbname in server_db) {
         db = server_db[dbname];
         if (!db.has('quotes').value()) {
@@ -182,7 +182,7 @@ var ready = async function () {
 }
 
 var newGuild = function (guild) {
-    var db = bot.getCogDB("quotes", guild.id);
+    var db = bot.db.getCogDB("quotes", guild.id);
     db.defaults({
         quotes: [],
         nextID: 0

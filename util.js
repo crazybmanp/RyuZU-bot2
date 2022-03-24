@@ -1,6 +1,6 @@
 var bot = {};
 
-var printLong = function (channel, items) {
+var printLong = function (channel, items, safety = 60) {
     var messageList = [];
     var curMessage = "";
     for (var i = 0; i < items.length; i++) {
@@ -12,8 +12,20 @@ var printLong = function (channel, items) {
     }
     messageList.push(curMessage);
 
-    for (var i = 0; i < messageList.length; i++) {
+    var messages = messageList.length;
+    var hitSafety = false;
+    if(messageList.length > safety) {
+        messages = safety;
+        hitSafety = true;
+        bot.logger.warn("Hit safety limit of " + safety + " messages, sending " + messageList.length + " messages.");
+    }
+
+    for (var i = 0; i < messages; i++) {
         channel.send(messageList[i]);
+    }
+
+    if(hitSafety) {
+        channel.send("This message has been truncated due to excessive length. Sorry.");
     }
 }
 

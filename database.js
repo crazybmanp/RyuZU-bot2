@@ -54,9 +54,7 @@ var getAllCogDBs = async function (cogkey) {
 
 var setup = function (b) {
     bot = b;
-    bot.getGlobalDB = getGlobalDB;
-    bot.getCogDB = getCogDB;
-    bot.getAllCogDBs = getAllCogDBs;
+    bot.db = {getGlobalDB, getCogDB, getAllCogDBs};
 }
 
 exports.requires = [];

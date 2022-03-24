@@ -29,20 +29,22 @@ var say = function (msg) {
 }
 
 var clean = function (msg) {
-    lim = parseInt(msg.content);
-    msg.channel.fetchMessages({
+    if (bot.isMod(msg.channel, msg.author)) {
+        lim = parseInt(msg.content);
+        msg.channel.fetchMessages({
             limit: isNaN(lim) ? 100 : lim
         })
-        .then(function (messages) {
-            var messages = messages.filter(function (s) {
-                return (s.author.id === bot.client.user.id || s.content.startsWith(bot.config.commandString))
+            .then(function (messages) {
+                var messages = messages.filter(function (s) {
+                    return (s.author.id === bot.client.user.id || s.content.startsWith(bot.config.commandString))
+                })
+                msg.channel.bulkDelete(messages);
+                d = msg.reply("Deleted " + messages.size + " messages.");
             })
-            msg.channel.bulkDelete(messages);
-            d = msg.reply("Deleted " + messages.size + " messages.");
-        })
-        .catch(function(err) {
-            bot.logger.error("Error fetching messages", {err});
-        });
+            .catch(function (err) {
+                bot.logger.error("Error fetching messages", { err });
+            });
+    }
 }
 
 var purge = async function (msg) {
