@@ -6,31 +6,31 @@ import { Bot } from './app';
 let bot: Bot = null;
 
 let preinit = function (b) {
-	bot = b;
+    bot = b;
 
-	const lb = new LoggingBunyan({
-		logName: bot.config.stackdriverName ? bot.config.stackdriverName : 'ryuzu',
-	});
+    const lb = new LoggingBunyan({
+        logName: bot.config.stackdriverName ? bot.config.stackdriverName : 'ryuzu',
+    });
 
-	const streams = [
-		{
-			stream: process.stdout,
-			level: 'info'
-		},
-	];
+    const streams = [
+        {
+            stream: process.stdout,
+            level: 'info'
+        },
+    ];
 
-	if (!bot.config.devMode) {
-		streams.push(lb.stream('info'));
-	}
+    if (!bot.config.devMode) {
+        streams.push(lb.stream('info'));
+    }
 
-	bot.logger = bunyan.createLogger({
-		name: 'RyuZU2',
-		streams
-	});
+    bot.logger = bunyan.createLogger({
+        name: 'RyuZU2',
+        streams
+    });
 };
 
-let setup = function(b) {
-	// no setup
+let setup = function (b) {
+    // no setup
 };
 
 exports.requires = [];
