@@ -1,13 +1,13 @@
-import { Column, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
-@Entity({name:"Quotes", synchronize: true})
+@Entity({ name: "Quotes", synchronize: true })
 export class Quotes {
-    @PrimaryGeneratedColumn()
-    id;
+	@PrimaryGeneratedColumn()
+	id;
 
-    @Column({type: "text"})
-    text;
+	@Column({ type: "text" })
+	text;
 
-    @Column({type: "text"})
-    category;
+	@Column({ type: "text" })
+	category;
 }

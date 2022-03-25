@@ -1,217 +1,227 @@
-import { Bot } from '../app';
+import { Bot } from '../lib/Bot';
+import { Cog } from '../lib/Cog';
 
-let bot: Bot;
-let serverDb: any = {};
-let subcommands: any = {};
+class quoteCog extends Cog {
+	requires: string[] = ['./database.js', './util.js'];
 
-let getCategories = function (db) {
-    return db.get('quotes').uniqBy('category').map('category').value();
-};
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private serverDb: any = {};
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private subcommands: any = {};
 
-let isCategory = function (db, cat) {
-    return getCategories(db).indexOf(cat) > -1;
-};
+	constructor(bot: Bot) {
+		super(bot);
 
-let constructQuote = function (quote): string {
-    return quote.id + '(' + quote.category + '): ' + quote.quote;
-};
+		this.subcommands = {
+			'random': this.randomQuote,
+			'list': this.listQuote,
+			'get': this.getQuote,
+			'give': this.getQuote,
+			'delete': this.deleteQuote,
+			'remove': this.deleteQuote,
+			'add': this.addQuote
+		};
+	}
 
-let printQuote = function (msg, quote) {
-    msg.channel.send(constructQuote(quote));
-};
+	setup() {
+		this.bot.giveQuote = this.GiveQuoteSupport;
+		this.bot.registerCommand('quote', this.quoteHandler);
+	}
 
-let randomQuote = function (msg) {
-    let db = serverDb[msg.guild.id];
-    let val = {};
-    if (msg.content.length > 0) {
-        let cat = msg.content.split(' ')[0];
-        if (!isCategory(db, cat)) {
-            msg.reply('Not a valid category.');
-            return;
-        }
-        val = db.get('quotes').filter({
-            category: cat
-        }).shuffle().head().value();
-    } else {
-        val = db.get('quotes').shuffle().head().value();
-    }
-    printQuote(msg, val);
-};
-subcommands.random = randomQuote;
+	ready() {
+		this.bot.logger.info('Quote - Mounting DBs');
+		this.serverDb = this.bot.getAllCogDBs('quotes');
+		for (const dbname in this.serverDb) {
+			const db = this.serverDb[dbname];
+			if (!db.has('quotes').value()) {
+				this.bot.logger.info('Setting up new server');
+				db.defaults({
+					quotes: [],
+					nextID: 0
+				}).write();
+			}
+		}
+	}
 
-let listQuote = function (msg) {
-    let db = serverDb[msg.guild.id];
-    let val: { [key: string]: any }[] = null;
-    if (msg.content.length > 0) {
-        let cat = msg.content.split(' ')[0];
-        if (!isCategory(db, cat)) {
-            msg.reply('Not a valid category.');
-            return;
-        }
-        val = db.get('quotes').filter({
-            category: cat
-        }).value();
-    } else {
-        val = db.get('quotes').value();
-    }
-    let quoteText: string = val.map((x) => constructQuote(x)).join('\n');
+	newGuild(guild) {
+		const db = this.bot.getCogDB('quotes', guild.id);
+		db.defaults({
+			quotes: [],
+			nextID: 0
+		}).write();
+		this.serverDb[guild.id] = db;
+	}
 
-    if (quoteText.length < 1) {
-        msg.reply('found no quotes...');
-        return;
-    }
+	GiveQuoteSupport(guild, num) {
+		const db = this.serverDb[guild.id];
+		let ret = {};
+		if (num == null) {
+			ret = db.get('quotes').shuffle().head().value();
+		} else {
+			ret = db.get('quotes').find({
+				id: num
+			}).value();
+		}
+		return JSON.parse(JSON.stringify(ret));
+	}
 
-    bot.printLong(msg.channel, quoteText);
-};
-subcommands.list = listQuote;
+	private getCategories(db) {
+		return db.get('quotes').uniqBy('category').map('category').value();
+	}
 
-let getQuote = function (msg) {
-    let db: any = serverDb[msg.guild.id];
-    let num: number = parseInt(msg.content);
-    if (isNaN(num)) {
-        msg.reply('You need to give a quote number in order to get a quote');
-        return;
-    }
-    let val = db.get('quotes').find({
-        id: num
-    }).value();
-    if (typeof val === 'undefined') {
-        msg.reply('Quote not found.');
-        return;
-    }
-    printQuote(msg, val);
-};
-subcommands.get = getQuote;
-subcommands.give = getQuote;
+	private isCategory(db, cat) {
+		return this.getCategories(db).indexOf(cat) > -1;
+	}
 
-let deleteQuote = function (msg) {
-    let db = serverDb[msg.guild.id];
-    if (!bot.isMod(msg.channel, msg.author)) {
-        msg.reply('You are not allowed to do that');
-    }
-    let num: number = parseInt(msg.content);
-    if (isNaN(num)) {
-        msg.reply('You need to give a quote number in order to get a quote');
-        return;
-    }
-    let val = db.get('quotes').find({
-        id: num
-    }).value();
-    if (typeof val === 'undefined') {
-        msg.reply('Quote not found.');
-        return;
-    }
-    db.get('quotes').remove({
-        id: num
-    }).write();
-    msg.reply('Quote removed: ');
-    printQuote(msg, val);
-};
-subcommands.delete = deleteQuote;
-subcommands.remove = deleteQuote;
+	private constructQuote(quote): string {
+		return quote.id + '(' + quote.category + '): ' + quote.quote;
+	}
 
-let addQuote = function (msg) {
-    let splt = msg.content.split('"');
-    let supersplit = [];
-    splt.forEach(function (element) {
-        supersplit.push(element.split(' '));
-    }, this);
-    supersplit.forEach(function (element, i, arr) {
-        arr[i] = element.filter(Boolean);
-    }, this);
+	private printQuote(msg, quote) {
+		msg.channel.send(this.constructQuote(quote));
+	}
 
-    if (supersplit.length < 2) {
-        msg.reply('Usage: specify the quote in quotations, with one word before or after to specify its category');
-        return;
-    }
-    if (supersplit[0].length + supersplit[2].length > 1) {
-        msg.reply('Usage: specify the quote in quotations, with one word before or after to specify its category');
-        return;
-    }
+	private randomQuote(msg) {
+		const db = this.serverDb[msg.guild.id];
+		let val = {};
+		if (msg.content.length > 0) {
+			const cat = msg.content.split(' ')[0];
+			if (!this.isCategory(db, cat)) {
+				msg.reply('Not a valid category.');
+				return;
+			}
+			val = db.get('quotes').filter({
+				category: cat
+			}).shuffle().head().value();
+		} else {
+			val = db.get('quotes').shuffle().head().value();
+		}
+		this.printQuote(msg, val);
+	}
 
-    let category = '';
-    if (supersplit[0].length === 1) {
-        category = supersplit[0][0];
-    } else {
-        category = supersplit[2][0];
-    }
-    let quote = supersplit[1].join(' ');
-    let db = serverDb[msg.guild.id];
-    let id = db.get('nextID').value();
-    db.get('quotes').push({
-        'id': id++,
-        'quote': quote,
-        'category': category
-    }).write();
-    db.assign({
-        'nextID': id
-    }).write();
-    msg.reply('Quote added:');
-    let val = db.get('quotes').find({
-        'id': (id - 1)
-    }).value();
-    printQuote(msg, val);
-};
-subcommands.add = addQuote;
+	private listQuote(msg) {
+		const db = this.serverDb[msg.guild.id];
+		let val: { [key: string]: unknown }[] = null;
+		if (msg.content.length > 0) {
+			const cat = msg.content.split(' ')[0];
+			if (!this.isCategory(db, cat)) {
+				msg.reply('Not a valid category.');
+				return;
+			}
+			val = db.get('quotes').filter({
+				category: cat
+			}).value();
+		} else {
+			val = db.get('quotes').value();
+		}
+		const quoteText: string = val.map((x) => this.constructQuote(x)).join('\n');
 
-let quoteHandler = function (msg) {
-    let command = msg.content.split(' ')[0];
-    msg.content = msg.content.substr(command.length + 1, msg.content.length);
-    if (command === '') {
-        command = 'random';
-    }
-    let fn = subcommands[command];
-    if (typeof fn === 'function') {
-        fn(msg);
-    } else {
-        msg.reply('Cannot find subcommand... [' + command + ']');
-    }
-};
+		if (quoteText.length < 1) {
+			msg.reply('found no quotes...');
+			return;
+		}
 
-let ready = function () {
-    bot.logger.info('Quote - Mounting DBs');
-    serverDb = bot.getAllCogDBs('quotes');
-    for (let dbname in serverDb) {
-        let db = serverDb[dbname];
-        if (!db.has('quotes').value()) {
-            bot.logger.info('Setting up new server');
-            db.defaults({
-                quotes: [],
-                nextID: 0
-            }).write();
-        }
-    }
-};
+		this.bot.printLong(msg.channel, quoteText);
+	}
 
-let newGuild = function (guild) {
-    let db = bot.getCogDB('quotes', guild.id);
-    db.defaults({
-        quotes: [],
-        nextID: 0
-    }).write();
-    serverDb[guild.id] = db;
-};
+	private getQuote(msg) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const db: any = this.serverDb[msg.guild.id];
+		const num: number = parseInt(msg.content);
+		if (isNaN(num)) {
+			msg.reply('You need to give a quote number in order to get a quote');
+			return;
+		}
+		const val = db.get('quotes').find({
+			id: num
+		}).value();
+		if (typeof val === 'undefined') {
+			msg.reply('Quote not found.');
+			return;
+		}
+		this.printQuote(msg, val);
+	}
 
-let GiveQuoteSupport = function (guild, num) {
-    let db = serverDb[guild.id];
-    let ret = {};
-    if (num == null) {
-        ret = db.get('quotes').shuffle().head().value();
-    } else {
-        ret = db.get('quotes').find({
-            id: num
-        }).value();
-    }
-    return JSON.parse(JSON.stringify(ret));
-};
+	private deleteQuote(msg) {
+		const db = this.serverDb[msg.guild.id];
+		if (!this.bot.isMod(msg.channel, msg.author)) {
+			msg.reply('You are not allowed to do that');
+		}
+		const num: number = parseInt(msg.content);
+		if (isNaN(num)) {
+			msg.reply('You need to give a quote number in order to get a quote');
+			return;
+		}
+		const val = db.get('quotes').find({
+			id: num
+		}).value();
+		if (typeof val === 'undefined') {
+			msg.reply('Quote not found.');
+			return;
+		}
+		db.get('quotes').remove({
+			id: num
+		}).write();
+		msg.reply('Quote removed: ');
+		this.printQuote(msg, val);
+	}
 
-let setup = function (b) {
-    bot = b;
-    bot.giveQuote = GiveQuoteSupport;
-    bot.registerCommand('quote', quoteHandler);
-};
+	private addQuote(msg) {
+		const splt = msg.content.split('"');
+		const supersplit = [];
+		splt.forEach(function (element) {
+			supersplit.push(element.split(' '));
+		}, this);
+		supersplit.forEach(function (element, i, arr) {
+			arr[i] = element.filter(Boolean);
+		}, this);
 
-exports.requires = ['./database.js', './util.js'];
-exports.ready = ready;
-exports.setup = setup;
-exports.newGuild = newGuild;
+		if (supersplit.length < 2) {
+			msg.reply('Usage: specify the quote in quotations, with one word before or after to specify its category');
+			return;
+		}
+		if (supersplit[0].length + supersplit[2].length > 1) {
+			msg.reply('Usage: specify the quote in quotations, with one word before or after to specify its category');
+			return;
+		}
+
+		let category = '';
+		if (supersplit[0].length === 1) {
+			category = supersplit[0][0];
+		} else {
+			category = supersplit[2][0];
+		}
+		const quote = supersplit[1].join(' ');
+		const db = this.serverDb[msg.guild.id];
+		let id = db.get('nextID').value();
+		db.get('quotes').push({
+			'id': id++,
+			'quote': quote,
+			'category': category
+		}).write();
+		db.assign({
+			'nextID': id
+		}).write();
+		msg.reply('Quote added:');
+		const val = db.get('quotes').find({
+			'id': (id - 1)
+		}).value();
+		this.printQuote(msg, val);
+	}
+
+	private quoteHandler(msg) {
+		let command = msg.content.split(' ')[0];
+		msg.content = msg.content.substr(command.length + 1, msg.content.length);
+		if (command === '') {
+			command = 'random';
+		}
+		const fn = this.subcommands[command];
+		if (typeof fn === 'function') {
+			fn(msg);
+		} else {
+			msg.reply('Cannot find subcommand... [' + command + ']');
+		}
+	}
+}
+
+export default (bot: Bot) => {return new quoteCog(bot);}

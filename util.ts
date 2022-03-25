@@ -1,28 +1,29 @@
-import { Bot } from './app';
+import { Bot } from './lib/Bot';
+import { Cog } from './lib/Cog';
 
-let bot: Bot;
+class utilCog extends Cog {
+	requires: string[] = [];
 
-let printLong = function (channel, items) {
-    let messageList = [];
-    let curMessage = '';
-    for (let i = 0; i < items.length; i++) {
-        if (curMessage.length + items[i].length > 2000) {
-            messageList.push(curMessage);
-            curMessage = '';
-        }
-        curMessage += items[i];
-    }
-    messageList.push(curMessage);
+	printLong(channel, items) {
+		const messageList = [];
+		let curMessage = '';
+		for (let i = 0; i < items.length; i++) {
+			if (curMessage.length + items[i].length > 2000) {
+				messageList.push(curMessage);
+				curMessage = '';
+			}
+			curMessage += items[i];
+		}
+		messageList.push(curMessage);
 
-    for (let i = 0; i < messageList.length; i++) {
-        channel.send(messageList[i]);
-    }
-};
+		for (let i = 0; i < messageList.length; i++) {
+			channel.send(messageList[i]);
+		}
+	}
 
-let setup = function (b) {
-    bot = b;
-    bot.printLong = printLong;
-};
+	setup() {
+		this.bot.printLong = this.printLong;
+	}
+}
 
-exports.requires = [];
-exports.setup = setup;
+export default (bot: Bot) => {return new utilCog(bot);}

@@ -65,3 +65,6 @@ config.json
 databases/
 data/
 config/
+!.eslintrc.js
+
+tsconfig.tsbuildinfo

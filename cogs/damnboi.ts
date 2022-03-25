@@ -1,81 +1,81 @@
-let memeMsg: string = 'oh yeah damn damn boi DAMN BOI HE THICC BOI THAT\'S A THICC ASS BOI DAMN';
-import { Bot } from '../app';
+const memeMsg: string = 'oh yeah damn damn boi DAMN BOI HE THICC BOI THAT\'S A THICC ASS BOI DAMN';
+import { Bot } from '../lib/Bot';
+import { Cog } from '../lib/Cog';
+class damnboiCog extends Cog {
+	requires = [];
 
-let bot: Bot;
+	setup() {
+		this.bot.memeMe = this.memeMe;
+		this.bot.registerCommand('damnboi', this.damn);
+		this.bot.registerCommand('mix', this.mix);
+		this.bot.registerCommand('damnquote', this.quotedamn);
+		this.bot.registerCommand('strokeout', this.quotedamn);
+		this.bot.registerCommand('sromkoot', this.quotedamn);
+		this.bot.registerCommand('stronkout', this.quotedamn);
+	}
 
-let memeMe = function (msg) {
-    let arr = msg.toString().split(' ');
-    _shuffle(arr);
-    return arr.join(' ');
-};
+	memeMe(msg) {
+		const arr = msg.toString().split(' ');
+		this._shuffle(arr);
+		return arr.join(' ');
+	}
 
-let damn = function (msg) {
-    msg.channel.send(memeMe(memeMsg));
-};
+	damn(msg) {
+		msg.channel.send(this.memeMe(memeMsg));
+	}
 
-// Shamelessly stolen from stack overflow
-function _shuffle(array) {
-    let currentIndex = array.length,
-        temporaryValue, randomIndex;
+	// Shamelessly stolen from stack overflow
+	_shuffle(array) {
+		let currentIndex = array.length,
+			temporaryValue, randomIndex;
 
-    // While there remain elements to shuffle...
-    while (0 !== currentIndex) {
+		// While there remain elements to shuffle...
+		while (0 !== currentIndex) {
 
-        // Pick a remaining element...
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex -= 1;
+			// Pick a remaining element...
+			randomIndex = Math.floor(Math.random() * currentIndex);
+			currentIndex -= 1;
 
-        // And swap it with the current element.
-        temporaryValue = array[currentIndex];
-        array[currentIndex] = array[randomIndex];
-        array[randomIndex] = temporaryValue;
-    }
+			// And swap it with the current element.
+			temporaryValue = array[currentIndex];
+			array[currentIndex] = array[randomIndex];
+			array[randomIndex] = temporaryValue;
+		}
 
-    return array;
+		return array;
+	}
+
+	constructQuote(quote) {
+		return quote.id + '(' + quote.category + '): ' + quote.quote;
+	}
+
+	printQuote(msg, quote) {
+		msg.channel.send(this.constructQuote(quote));
+	}
+
+	quotedamn(msg) {
+		let q;
+		if (msg.content.length > 0) {
+			const num: number = parseInt(msg.content);
+			if (isNaN(num)) {
+				msg.reply('You need to give a quote number in order to get a quote');
+				return;
+			}
+			q = this.bot.giveQuote(msg.guild, num);
+			if (typeof q === 'undefined') {
+				msg.reply('Quote not found.');
+				return;
+			}
+		} else {
+			q = this.bot.giveQuote(msg.guild);
+		}
+		q.quote = this.memeMe(q.quote);
+		this.printQuote(msg, q);
+	}
+
+	mix(msg) {
+		msg.channel.send(this.memeMe(msg.content));
+	}
 }
 
-let constructQuote = function (quote) {
-    return quote.id + '(' + quote.category + '): ' + quote.quote;
-};
-
-let printQuote = function (msg, quote) {
-    msg.channel.send(constructQuote(quote));
-};
-
-let quotedamn = function (msg) {
-    let q;
-    if (msg.content.length > 0) {
-        let num: number = parseInt(msg.content);
-        if (isNaN(num)) {
-            msg.reply('You need to give a quote number in order to get a quote');
-            return;
-        }
-        q = bot.giveQuote(msg.guild, num);
-        if (typeof q === 'undefined') {
-            msg.reply('Quote not found.');
-            return;
-        }
-    } else {
-        q = bot.giveQuote(msg.guild);
-    }
-    q.quote = memeMe(q.quote);
-    printQuote(msg, q);
-};
-
-let mix = function (msg) {
-    msg.channel.send(memeMe(msg.content));
-};
-
-let setup = function (b) {
-    bot = b;
-    bot.memeMe = memeMe;
-    bot.registerCommand('damnboi', damn);
-    bot.registerCommand('mix', mix);
-    bot.registerCommand('damnquote', quotedamn);
-    bot.registerCommand('strokeout', quotedamn);
-    bot.registerCommand('sromkoot', quotedamn);
-    bot.registerCommand('stronkout', quotedamn);
-};
-
-exports.requires = [];
-exports.setup = setup;
+export default (bot: Bot) => {return new damnboiCog(bot);}

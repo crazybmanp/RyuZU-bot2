@@ -1,5 +1,5 @@
-var Quotes = require("./Quotes");
+import { Quotes } from "./Quotes";
 
-//export { Quotes } from "./Quotes";
+export { Quotes } from "./Quotes";
 
-exports.default = [Quotes];
+export default [Quotes];

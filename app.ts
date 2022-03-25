@@ -1,124 +1,40 @@
-import Discord, { Client, Presence, Game, PresenceData, Message } from 'discord.js';
-let fs = require('fs');
-require('source-map-support').install();
-
-export interface Cog {
-	requires: string[];
-
-	setup: (bot: Bot) => void;
-	preinit?: (bot: Bot) => void;
-	ready: () => void;
-	newGuild: (guild: Discord.Guild) => void;
-}
-
-export class Bot {
-	constructor(configFile: string) {
-		this.ready = false;
-		this.loadedCogs = {};
-		this.listeners = {};
-		let pjson = require('./package.json');
-		this.version = pjson.version;
-
-		bot.logger.info("RyuZu " + this.version + " starting up.");
-
-		this.client = new Discord.Client({
-			intents: [
-				"GUILDS",
-				"GUILD_MEMBERS",
-				"GUILD_BANS",
-				"GUILD_EMOJIS_AND_STICKERS",
-				"GUILD_INTEGRATIONS",
-				"GUILD_WEBHOOKS",
-				"GUILD_INVITES",
-				"GUILD_VOICE_STATES",
-				"GUILD_PRESENCES",
-				"GUILD_MESSAGES",
-				"GUILD_MESSAGE_REACTIONS",
-				"GUILD_MESSAGE_TYPING",
-				"DIRECT_MESSAGES",
-				"DIRECT_MESSAGE_REACTIONS",
-				"DIRECT_MESSAGE_TYPING",
-			]
-		});
-
-		const contents = fs.readFileSync(configFile);
-		this.config = JSON.parse(contents);
-
-		let loggerCog: Cog = require('./logger');
-		this.loadedCogs['./logger.js'] = loggerCog;
-		loggerCog.preinit(this);
-	}
-
-	listeners: { [key: string]: (msg: Message) => void };
-	config: { [key: string]: any };
-	client: Client;
-	loadedCogs: { [key: string]: Cog };
-	ready: boolean;
-	version: string;
-
-	logger: Logger;
-
-	registerCommand(command, func) {
-		this.listeners[command] = func;
-	}
-
-	loadCog(cogname: string) {
-		if (cogname in this.loadedCogs) {
-			return;
-		}
-		try {
-			let e: Cog = require(cogname);
-			if (Array.isArray(e.requires) && e.requires.length > 0) {
-				this.logger.info('Module ' + cogname + ' requires: ' + e.requires);
-				for (let i = 0; i < e.requires.length; i++) {
-					this.loadCog(e.requires[i]);
-				}
-			}
-			this.logger.info('Loading ' + cogname + '...');
-			e.setup(bot);
-			this.loadedCogs[cogname] = e;
-		} catch (err) {
-			this.logger.error('Failed to load ' + cogname, { err: err });
-			process.exit();
-		}
-	}
-
-	[key: string]: any;
-}
-
-export interface Logger {
-	info: (message: string | {}, ...args: any[]) => void;
-	warn: (message: string | {}, ...args: any[]) => void;
-	error: (message: string | {}, ...args: any[]) => void;
-}
+import { PresenceData } from 'discord.js';
+import { ActivityTypes } from 'discord.js/typings/enums';
+import sourceMapSupport from 'source-map-support';
+import { Bot } from './lib/Bot';
+sourceMapSupport.install();
 
 const coreCogs = ['./admin.js', './util.js'];
 
-let bot = new Bot('config.json');
-
-bot.logger.info('RyuZu ' + bot.version + ' starting up.');
+const bot = new Bot('config.json');
 
 bot.client.on('ready', () => {
 	bot.logger.info(`Logged in as ${bot.client.user.tag}! Now readying up!`);
-	for (let cogName in bot.loadedCogs) {
-		let cog = bot.loadedCogs[cogName];
+	for (const cogName in bot.loadedCogs) {
+		const cog = bot.loadedCogs[cogName];
 		if (typeof cog.ready === 'function') {
 			bot.logger.info('Readying ' + cogName);
 			cog.ready();
 		}
 	}
-	let presence: PresenceData = {
-		name: bot.config.commandString + ' ' + bot.config.gameMessage + '[' + bot.version + ']',
+
+	const presence: PresenceData = {
+		status: 'online',
+		afk: false,
+		activities: [{
+			name: bot.config.commandString + ' ' + bot.config.gameMessage + '[' + bot.version + ']',
+			type: ActivityTypes.PLAYING
+		}]
 	};
 	bot.client.user.setPresence(presence);
 	bot.ready = true;
-	bot.logger.info("RyuZu " + version + " ready!");
+	bot.logger.info("RyuZu " + bot.version + " ready!");
 });
 
 bot.client.on('guildCreate', guild => {
 	bot.logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
-	for (let cogName in bot.loadedCogs) {
-		let cog = bot.loadedCogs[cogName];
+	for (const cogName in bot.loadedCogs) {
+		const cog = bot.loadedCogs[cogName];
 		if (typeof cog.newGuild === 'function') {
 			bot.logger.info('Notifying ' + cogName + ' of new guild.');
 			cog.newGuild(guild);
@@ -135,9 +51,9 @@ bot.client.on('message', async msg => {
 		return;
 	}
 	msg.content = msg.content.substr(bot.config.commandString.length, msg.content.length);
-	let command = msg.content.split(' ')[0];
+	const command = msg.content.split(' ')[0];
 	msg.content = msg.content.substr(command.length + 1, msg.content.length);
-	let fn = bot.listeners[command];
+	const fn = bot.listeners[command];
 	msg.channel.sendTyping();
 	if (typeof fn === 'function') {
 		try {

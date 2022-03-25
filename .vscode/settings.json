@@ -8,7 +8,9 @@
 		},
 		"**/*.js.map": {
 			"when": "$(basename)"
-		}
+		},
+		".eslintcache": true,
+		"*.tsbuildinfo": true
 	},
 	"editor.insertSpaces": false,
 	"editor.detectIndentation": false,
