@@ -133,7 +133,7 @@ export class databaseCog extends Cog implements IFunctionProvider{
 			user = await this.addUser(member.user);
 		}
 
-		if (user.guildMember.some(gm => gm.guildId === guildId)) {
+		if (user.guildMember && user.guildMember.some(gm => gm.guildId === guildId)) {
 			return user;
 		} else {
 			const updatedUser = await this.guildMembership(user, guildId);

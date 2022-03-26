@@ -6,7 +6,7 @@ export class QuoteNumber {
 	@OneToOne(() => Guild, guild => guild.id)
 	guild: Guild;
 
-	@PrimaryColumn()
+	@PrimaryColumn({ nullable: false })
 	guildId: string;
 
 	@Column({ nullable: false, default: 1 })

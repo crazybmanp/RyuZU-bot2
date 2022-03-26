@@ -7,7 +7,7 @@ export class User {
 	id: string;
 
 	@OneToMany(() => GuildMember, guildMember => guildMember.user)
-	guildMember: GuildMember[];
+	guildMember?: GuildMember[];
 
 	@Column()
 	displayName: string;

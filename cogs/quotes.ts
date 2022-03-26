@@ -77,7 +77,7 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 	}
 
 	private constructQuote(quote:Quote): string {
-		return `${quote.id}(${quote.category}): ${quote.text}`;
+		return `${quote.quoteNumber} (${quote.category}): ${quote.text}`;
 	}
 
 	private printQuote(msg: Discord.Message, quote: Quote): void {
@@ -252,7 +252,7 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 		await this.printQuote(msg, quote);
 	}
 
-	private quoteHandler(msg) {
+	private async quoteHandler(msg) {
 		let command = msg.content.split(' ')[0];
 		msg.content = msg.content.substr(command.length + 1, msg.content.length);
 		if (command === '') {
@@ -260,7 +260,7 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 		}
 		const fn = this.subcommands[command];
 		if (typeof fn === 'function') {
-			fn(msg);
+			await fn(msg);
 		} else {
 			msg.reply('Cannot find subcommand... [' + command + ']');
 		}
