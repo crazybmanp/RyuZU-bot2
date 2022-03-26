@@ -3,6 +3,7 @@ import { Cog } from './lib/Cog';
 
 class adminCog extends Cog {
 	requires: string[] = [];
+	cogName: string = 'admin';
 
 	setup() {
 		this.bot.isOwner = this.isOwner;

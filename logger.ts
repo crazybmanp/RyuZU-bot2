@@ -3,8 +3,9 @@ import { LoggingBunyan } from '@google-cloud/logging-bunyan';
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
 
-class loggerCog extends Cog {
+export class loggerCog extends Cog {
 	requires: string[] = [];
+	cogName: string = 'logger';
 
 	preinit() {
 		const lb = new LoggingBunyan({
@@ -14,7 +15,7 @@ class loggerCog extends Cog {
 		const streams: {level: bunyan.LogLevel, type?: string, stream: NodeJS.WriteStream|NodeJS.WritableStream}[] = [
 			{
 				stream: process.stdout,
-				level: 'info'
+				level: this.bot.config.devMode ? 'debug' : 'info',
 			},
 		];
 

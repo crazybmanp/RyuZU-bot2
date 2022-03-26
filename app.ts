@@ -8,14 +8,12 @@ const coreCogs = ['./admin.js', './util.js'];
 
 const bot = new Bot('config.json');
 
-bot.client.on('ready', () => {
+bot.client.on('ready', async () => {
 	bot.logger.info(`Logged in as ${bot.client.user.tag}! Now readying up!`);
 	for (const cogName in bot.loadedCogs) {
 		const cog = bot.loadedCogs[cogName];
-		if (typeof cog.ready === 'function') {
-			bot.logger.info('Readying ' + cogName);
-			cog.ready();
-		}
+		bot.logger.info('Readying ' + cogName);
+		await cog.ready();
 	}
 
 	const presence: PresenceData = {
@@ -28,7 +26,7 @@ bot.client.on('ready', () => {
 	};
 	bot.client.user.setPresence(presence);
 	bot.ready = true;
-	bot.logger.info("RyuZu " + bot.version + " ready!");
+	bot.logger.info('RyuZu ' + bot.version + ' ready!');
 });
 
 bot.client.on('guildCreate', guild => {
@@ -84,6 +82,11 @@ coreCogs.forEach(function (element) {
 bot.config.startupExtensions.forEach(function (element) {
 	bot.loadCog(element);
 }, this);
+
+bot.logger.info(`Starting postSetup`);
+for (const cog in bot.loadedCogs) {
+	bot.loadedCogs[cog].postSetup();
+}
 
 // start the client
 bot.client.login(bot.config.token);

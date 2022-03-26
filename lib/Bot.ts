@@ -2,6 +2,7 @@ import Discord, { Client, Message } from 'discord.js';
 import fs from 'fs';
 import { Cog } from './Cog';
 import Logger from 'bunyan';
+import { loggerCog } from '../logger';
 
 type CogFactory = (bot: Bot) => Cog;
 //type CommandFunction = (msg: Message) => Promise<void>|void
@@ -20,29 +21,29 @@ export class Bot {
 		this.version = pjson.version;
 
 		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const loggerCog: Cog = (require('../logger.js').default as CogFactory)(this);
-		this.loadedCogs['../logger.js'] = loggerCog;
-		loggerCog.preinit();
+		const LCInstance: loggerCog = ((require('../logger.js').default as CogFactory)(this) as loggerCog);
+		this.loadedCogs[LCInstance.cogName] = LCInstance;
+		LCInstance.preinit();
 
-		this.logger.info("RyuZu " + this.version + " starting up.");
+		this.logger.info('RyuZu ' + this.version + ' starting up.');
 
 		this.client = new Discord.Client({
 			intents: [
-				"GUILDS",
-				"GUILD_MEMBERS",
-				"GUILD_BANS",
-				"GUILD_EMOJIS_AND_STICKERS",
-				"GUILD_INTEGRATIONS",
-				"GUILD_WEBHOOKS",
-				"GUILD_INVITES",
-				"GUILD_VOICE_STATES",
-				"GUILD_PRESENCES",
-				"GUILD_MESSAGES",
-				"GUILD_MESSAGE_REACTIONS",
-				"GUILD_MESSAGE_TYPING",
-				"DIRECT_MESSAGES",
-				"DIRECT_MESSAGE_REACTIONS",
-				"DIRECT_MESSAGE_TYPING",
+				'GUILDS',
+				'GUILD_MEMBERS',
+				'GUILD_BANS',
+				'GUILD_EMOJIS_AND_STICKERS',
+				'GUILD_INTEGRATIONS',
+				'GUILD_WEBHOOKS',
+				'GUILD_INVITES',
+				'GUILD_VOICE_STATES',
+				'GUILD_PRESENCES',
+				'GUILD_MESSAGES',
+				'GUILD_MESSAGE_REACTIONS',
+				'GUILD_MESSAGE_TYPING',
+				'DIRECT_MESSAGES',
+				'DIRECT_MESSAGE_REACTIONS',
+				'DIRECT_MESSAGE_TYPING',
 			]
 		});
 	}
@@ -76,11 +77,19 @@ export class Bot {
 			}
 			this.logger.info('Loading ' + cogname + '...');
 			e.setup();
-			this.loadedCogs[cogname] = e;
+			this.loadedCogs[e.cogName] = e;
 		} catch (err) {
 			this.logger.error('Failed to load ' + cogname, { err: err });
 			process.exit();
 		}
+	}
+
+	getCog<Type extends Cog>(cogName: string): Type | undefined {
+		const cog = this.loadedCogs[cogName];
+		if (cog === undefined || cog.cogName !== cogName) {
+			return undefined;
+		}
+		return cog as Type;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

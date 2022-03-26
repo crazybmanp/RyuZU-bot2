@@ -16,8 +16,32 @@
 				"plugin:@typescript-eslint/recommended"
 			],
 			"rules": {
-				"@typescript-eslint/no-inferrable-types": "off"
-			}
+				"@typescript-eslint/no-inferrable-types": "off",
+				"quotes": [
+					"error",
+					"single",
+					{
+						"avoidEscape": true,
+						"allowTemplateLiterals": true
+					}
+				],
+				// "@typescript-eslint/explicit-function-return-type": [
+				// 	"warn",
+				// 	{
+				// 		"allowExpressions": true,
+				// 		"allowTypedFunctionExpressions": true,
+				// 		"allowHigherOrderFunctions": true
+				// 	}
+				// ],
+				"no-return-await": "warn",
+				"@typescript-eslint/no-floating-promises": ["warn", {
+					"ignoreVoid": true
+				}],
+				"@typescript-eslint/no-misused-promises": ["error"],
+			},
+			"parserOptions": {
+        "project": ["./tsconfig.json"]
+      },
 		}
 	]
 }

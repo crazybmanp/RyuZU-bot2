@@ -3,6 +3,7 @@ import { Cog } from './lib/Cog';
 
 class utilCog extends Cog {
 	requires: string[] = [];
+	cogName: string = 'util';
 
 	printLong(channel, items) {
 		const messageList = [];

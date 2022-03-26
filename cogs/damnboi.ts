@@ -3,6 +3,7 @@ import { Bot } from '../lib/Bot';
 import { Cog } from '../lib/Cog';
 class damnboiCog extends Cog {
 	requires = [];
+	cogName: string = 'damnboi';
 
 	setup() {
 		this.bot.memeMe = this.memeMe;

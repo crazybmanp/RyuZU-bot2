@@ -18,7 +18,7 @@
 		"@google-cloud/logging-bunyan": "^3.3.0",
 		"@types/node": "^17.0.23",
 		"bunyan": "^1.8.12",
-		"discord.js": "^13.2.0",
+		"discord.js": "^13.6.0",
 		"lodash": "^4.17.20",
 		"lowdb": "^1.0.0",
 		"pg": "^8.7.3",
