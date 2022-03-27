@@ -12,18 +12,18 @@ export abstract class Cog {
 	setup(): Promise<void>|void{
 		return;
 	}
-	async postSetup():Promise<void> {
+	postSetup():Promise<void>|void {
 		return;
 	}
-	async ready():Promise<void>
+	ready():Promise<void>|void
 	{
 		return;
 	}
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	async newGuild(guild: Discord.Guild):Promise<void> {
+	newGuild(guild: Discord.Guild):Promise<void>|void {
 		return;
 	}
-	async shutdown():Promise<void> {
+	shutdown():Promise<void>|void {
 		this.bot = null;
 	}
 }

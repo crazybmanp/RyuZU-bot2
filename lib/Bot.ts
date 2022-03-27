@@ -4,26 +4,38 @@ import { Cog } from './Cog';
 import Logger from 'bunyan';
 import { loggerCog } from '../logger';
 import { ActivityTypes } from 'discord.js/typings/enums';
+import { Config } from '../model/Config';
 
-type CogFactory = (bot: Bot) => Cog;
-//type CommandFunction = (msg: Message) => Promise<void>|void
+export type CogFactory = (bot: Bot) => Cog;
+export type CommandFunction = (msg: Message) => Promise<void>|void
 
 const coreCogs = ['./admin.js', './util.js'];
 
 export class Bot {
+	listeners: { [key: string]: CommandFunction };
+	config: Config;
+	client: Client;
+	loadedCogs: { [key: string]: Cog };
+	ready: boolean;
+	version: string;
+
+	logger: Logger;
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[key: string]: any; //TODO: this is a hack, fix it
+
 	constructor(configFile: string) {
 		this.ready = false;
 		this.loadedCogs = {};
 		this.listeners = {};
 
 		const contents = fs.readFileSync(configFile).toString();
-		this.config = JSON.parse(contents);
+		this.config = (JSON.parse(contents) as Config);
 
-		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const pjson = require('../package.json');
-		this.version = pjson.version;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-var-requires
+		this.version = (require('../package.json').version as string);
 
-		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
 		const LCInstance: loggerCog = ((require('../logger.js').default as CogFactory)(this) as loggerCog);
 		this.loadedCogs[LCInstance.cogName] = LCInstance;
 		LCInstance.preinit();
@@ -51,54 +63,45 @@ export class Bot {
 		});
 	}
 
-	listeners: { [key: string]: (msg: Message) => void };
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	config: { [key: string]: any };
-	client: Client;
-	loadedCogs: { [key: string]: Cog };
-	ready: boolean;
-	version: string;
-
-	logger: Logger;
-
-	async setup() {
+	async setup(): Promise<void> {
 		// register base commands
 		this.registerCommands();
 
 		// Load Core Cogs
-		coreCogs.forEach(function (element) {
-			this.loadCog(element);
-		}, this);
+		for (const cog of coreCogs) {
+			await this.loadCog(cog);
+		}
 
 		// Load Startup Cogs
-		this.config.startupExtensions.forEach(function (element) {
-			this.loadCog(element);
-		}, this);
+		for (const cog of this.config.startupExtensions) {
+			await this.loadCog(cog);
+		}
+
+		// start the client
+		await this.client.login(this.config.token);
 
 		this.logger.info(`Starting postSetup`);
-		const postSetup: Promise<unknown>[] = [];
+		const postSetup: (Promise<unknown>|void)[] = [];
 		for (const cog in this.loadedCogs) {
 			postSetup.push(this.loadedCogs[cog].postSetup());
 		}
 		await Promise.all(postSetup);
-
-		// start the client
-		await this.client.login(this.config.token);
 	}
 
-	registerCommand(command, func) {
+	registerCommand(command: string, func: CommandFunction): void {
 		this.listeners[command] = func;
 	}
 
-	async loadCog(cogname: string) {
+	async loadCog(cogname: string): Promise<void> {
 		if (cogname in this.loadedCogs) {
 			return;
 		}
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-var-requires
+			// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
 			const e: Cog = (require(`../${cogname}`).default as CogFactory)(this);
 			if (Array.isArray(e.requires) && e.requires.length > 0) {
-				this.logger.info('Module ' + cogname + ' requires: ' + e.requires);
+				// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+				this.logger.info('Module ' + cogname + ' requires: ' + e.requires); // TODO: Convert to template string
 				for (let i = 0; i < e.requires.length; i++) {
 					await this.loadCog(e.requires[i]);
 				}
@@ -106,7 +109,7 @@ export class Bot {
 			this.logger.info('Loading ' + cogname + '...');
 			await e.setup();
 			this.loadedCogs[e.cogName] = e;
-		} catch (err) {
+		} catch (err: unknown) {
 			this.logger.error('Failed to load ' + cogname, { err: err });
 			process.exit();
 		}
@@ -120,7 +123,7 @@ export class Bot {
 		return cog as Type;
 	}
 
-	async doReady() {
+	async doReady(): Promise<void> {
 		this.logger.info(`Logged in as ${this.client.user.tag}! Now readying up!`);
 		for (const cogName in this.loadedCogs) {
 			const cog = this.loadedCogs[cogName];
@@ -137,11 +140,12 @@ export class Bot {
 			}]
 		};
 		this.client.user.setPresence(presence);
+
 		this.ready = true;
 		this.logger.info('RyuZu ' + this.version + ' ready!');
 	}
 
-	doGuildCreate(guild: Guild) {
+	doGuildCreate(guild: Guild): void {
 		this.logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
 		for (const cogName in this.loadedCogs) {
 			const cog = this.loadedCogs[cogName];
@@ -150,7 +154,7 @@ export class Bot {
 		}
 	}
 
-	async doMessage(msg: Message) {
+	async doMessage(msg: Message): Promise<void> {
 		if (!this.ready) {
 			this.logger.warn('BOT RECIEVED MESSAGE BEFORE READY COMPLETED');
 			return;
@@ -166,7 +170,7 @@ export class Bot {
 		if (typeof fn === 'function') {
 			try {
 				await fn(msg);
-			} catch (error) {
+			} catch (error: unknown) {
 				this.logger.error('Command error on input: ' + msg.content, { error });
 			}
 		} else {
@@ -174,7 +178,7 @@ export class Bot {
 		}
 	}
 
-	registerCommands() {
+	registerCommands(): void {
 		this.client.on('ready', this.doReady.bind(this));
 		this.client.on('guildCreate', this.doGuildCreate.bind(this));
 		this.client.on('message', this.doMessage.bind(this));
@@ -182,7 +186,4 @@ export class Bot {
 			await msg.reply('Pong!');
 		});
 	}
-
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	[key: string]: any;
 }

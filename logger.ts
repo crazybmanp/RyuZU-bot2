@@ -7,7 +7,7 @@ export class loggerCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'logger';
 
-	preinit() {
+	preinit(): void {
 		const lb = new LoggingBunyan({
 			logName: this.bot.config.stackdriverName ? this.bot.config.stackdriverName : 'ryuzu',
 		});
@@ -30,4 +30,4 @@ export class loggerCog extends Cog {
 	}
 }
 
-export default (bot: Bot) => { return new loggerCog(bot); };
+export default (bot: Bot): loggerCog => { return new loggerCog(bot); };

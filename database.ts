@@ -1,22 +1,23 @@
-import { Guild } from './Model/Guild';
+import Discord from 'discord.js';
 import { DataSource, EntityManager } from 'typeorm';
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
 import { IDatabaseConsumer } from './lib/IDatabaseConsumer';
 import { IFunctionProvider } from './lib/IFunctionProvider';
-import Discord from 'discord.js';
-import { User } from './Model/User';
-import { GuildMember } from './Model/GuildMember';
+import { Guild } from './model/Guild';
+import { GuildMember } from './model/GuildMember';
+import { User } from './model/User';
 
-
-const baseModels = [Guild, User, GuildMember]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Entities = any[];
+const baseModels: Entities = [Guild, User, GuildMember]
 
 export class databaseCog extends Cog implements IFunctionProvider{
 	requires: string[] = [];
 	cogName: string = 'database';
 
 	private registeredConsumers: IDatabaseConsumer[];
-	private models: unknown[];
+	private models: Entities;
 	private datasource: DataSource;
 
 	constructor(bot: Bot) {
@@ -25,19 +26,25 @@ export class databaseCog extends Cog implements IFunctionProvider{
 		this.models = [];
 	}
 
-	async postSetup() {
+	async postSetup(): Promise<void> {
 		this.models.push(...baseModels);
 		for (const consumer of this.registeredConsumers) {
 			this.bot.logger.debug(`Registering models for ${consumer.cogName} cog.`);
 			this.models.push(...consumer.getModels());
 		}
+
 		this.bot.logger.debug(`Database cog loading ${this.models.length} models.`);
-		this.bot.logger.debug(`Loaded Models: ${ this.models }`);
-		const datasource = new DataSource({
-			synchronize: true,
-			entities: this.models,
-			...this.bot.config.database
-		});
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const DSO: any = {};
+		Object.assign(DSO,
+			{
+				synchronize: true,
+				entities: this.models,
+				...this.bot.config.database
+			}
+		)
+		const datasource = new DataSource(DSO);
+
 		this.bot.logger.info('Connecting to database...');
 		await datasource.initialize()
 			.then(() => {
@@ -85,7 +92,7 @@ export class databaseCog extends Cog implements IFunctionProvider{
 		return this.datasource.manager.findOneBy(Guild, { id: guildId });
 	}
 
-	async addGuild(guild: Discord.BaseGuild) {
+	async addGuild(guild: Discord.BaseGuild): Promise<void> {
 		if (await this.getGuild(guild.id)) {
 			return;
 		}
@@ -164,4 +171,4 @@ export class databaseCog extends Cog implements IFunctionProvider{
 	}
 }
 
-export default (bot: Bot) => {return new databaseCog(bot);}
+export default (bot: Bot): databaseCog => {return new databaseCog(bot);}

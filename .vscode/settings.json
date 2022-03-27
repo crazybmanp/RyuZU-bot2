@@ -18,4 +18,5 @@
 	"editor.formatOnType": true,
 	"files.trimTrailingWhitespace": true,
 	"git.confirmSync": true,
+	"typescript.tsserver.experimental.enableProjectDiagnostics": true
 }

@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// TODO: Get rid of this disable
+import Discord from 'discord.js';
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
 
@@ -5,18 +8,18 @@ class adminCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'admin';
 
-	setup() {
-		this.bot.isOwner = this.isOwner;
-		this.bot.isMod = this.isMod;
-		this.bot.registerCommand('say', this.say);
+	setup(): void {
+		this.bot.isOwner = this.isOwner.bind(this);
+		this.bot.isMod = this.isModOnChannel.bind(this);
+		this.bot.registerCommand('say', this.say.bind(this));
 		// bot.registerCommand('clean', clean);
 		// bot.registerCommand('clear', clean);
 		// bot.registerCommand('purge', purge);
-		this.bot.registerCommand('issue', this.issue);
-		this.bot.registerCommand('issues', this.issue);
+		this.bot.registerCommand('issue', this.issue.bind(this));
+		this.bot.registerCommand('issues', this.issue.bind(this));
 	}
 
-	private isOwner (author) {
+	private isOwner (author: Discord.User): boolean {
 		const fullname: string = author.username + '#' + author.discriminator;
 		for (let i = 0; i < this.bot.config.owners.length; i++) {
 			const owner: string = this.bot.config.owners[i];
@@ -27,18 +30,34 @@ class adminCog extends Cog {
 		return false;
 	}
 
-	isMod(channel, author) {
+	isManagerOnServer(author: Discord.GuildMember): boolean {
+		return this.hasPermOnServer('MANAGE_GUILD', author);
+	}
+
+	isModOnServer(author: Discord.GuildMember): boolean {
+		return this.hasPermOnServer('MANAGE_MESSAGES', author);
+	}
+
+	isModOnChannel(channel: Discord.GuildChannel, author: Discord.User): boolean {
+		return this.hasPermOnChannel('MANAGE_MESSAGES', channel, author);
+	}
+
+	hasPermOnServer(perm: Discord.PermissionString, author: Discord.GuildMember): boolean {
+		return author.permissions.has('MANAGE_MESSAGES');
+	}
+
+	hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel, author: Discord.User): boolean {
 		const perms = channel.permissionsFor(author);
 		return perms.has('MANAGE_MESSAGES');
 	}
 
-	say(msg) {
-		msg.delete();
+	async say(msg: Discord.Message): Promise<void> {
+		await msg.delete();
 		msg.channel.send(msg.content)
-			.catch(function (err) {
+			.catch( (err) => {
 				this.bot.logger.error('Error sending a message', { err });
 				msg.channel.send('I can\'t say that for some reason')
-					.catch(function (err2) {
+					.catch( (err2) => {
 						this.bot.logger.error('Error sending message saying we had an error sending a message', { err2 });
 					});
 			});
@@ -78,9 +97,9 @@ class adminCog extends Cog {
 	// 	}
 	// };
 
-	issue(msg) {
-		msg.reply('Here is a link to my issues page on my github, please report any issues here: ' + this.bot.config.issuesPage);
+	issue(msg: Discord.Message): void {
+		void msg.reply('Here is a link to my issues page on my github, please report any issues here: ' + this.bot.config.issuesPage);
 	}
 }
 
-export default (bot: Bot) => {return new adminCog(bot);}
+export default (bot: Bot): adminCog => {return new adminCog(bot);}

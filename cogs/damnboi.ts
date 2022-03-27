@@ -1,32 +1,35 @@
 const memeMsg: string = 'oh yeah damn damn boi DAMN BOI HE THICC BOI THAT\'S A THICC ASS BOI DAMN';
 import { Bot } from '../lib/Bot';
 import { Cog } from '../lib/Cog';
+import Discord from 'discord.js';
+import { Quote } from '../model/Quote';
+
 class damnboiCog extends Cog {
-	requires = [];
+	requires: string[] = [];
 	cogName: string = 'damnboi';
 
-	setup() {
-		this.bot.memeMe = this.memeMe;
-		this.bot.registerCommand('damnboi', this.damn);
-		this.bot.registerCommand('mix', this.mix);
-		this.bot.registerCommand('damnquote', this.quotedamn);
-		this.bot.registerCommand('strokeout', this.quotedamn);
-		this.bot.registerCommand('sromkoot', this.quotedamn);
-		this.bot.registerCommand('stronkout', this.quotedamn);
+	setup(): void {
+		this.bot.memeMe = this.memeMe.bind(this);
+		this.bot.registerCommand('damnboi', this.damn.bind(this));
+		this.bot.registerCommand('mix', this.mix.bind(this));
+		this.bot.registerCommand('damnquote', this.quotedamn.bind(this));
+		this.bot.registerCommand('strokeout', this.quotedamn.bind(this));
+		this.bot.registerCommand('sromkoot', this.quotedamn.bind(this));
+		this.bot.registerCommand('stronkout', this.quotedamn.bind(this));
 	}
 
-	memeMe(msg) {
-		const arr = msg.toString().split(' ');
+	memeMe(msg: string): string {
+		const arr = msg.split(' ');
 		this._shuffle(arr);
 		return arr.join(' ');
 	}
 
-	damn(msg) {
-		msg.channel.send(this.memeMe(memeMsg));
+	damn(msg: Discord.Message): void {
+		void msg.channel.send(this.memeMe(memeMsg));
 	}
 
 	// Shamelessly stolen from stack overflow
-	_shuffle(array) {
+	_shuffle(array: unknown[]): unknown[] {
 		let currentIndex = array.length,
 			temporaryValue, randomIndex;
 
@@ -46,37 +49,43 @@ class damnboiCog extends Cog {
 		return array;
 	}
 
-	constructQuote(quote) {
-		return quote.id + '(' + quote.category + '): ' + quote.quote;
+	private constructQuote(quote:Quote): string {
+		return `${quote.quoteNumber} (${quote.category}): ${quote.text}`;
 	}
 
-	printQuote(msg, quote) {
-		msg.channel.send(this.constructQuote(quote));
+	private printQuote(msg: Discord.Message, quote: Quote): void {
+		void msg.channel.send(this.constructQuote(quote));
 	}
 
-	quotedamn(msg) {
+	async quotedamn(msg: Discord.Message): Promise<void> {
 		let q;
 		if (msg.content.length > 0) {
 			const num: number = parseInt(msg.content);
 			if (isNaN(num)) {
-				msg.reply('You need to give a quote number in order to get a quote');
+				void msg.reply('You need to give a quote number in order to get a quote');
 				return;
 			}
-			q = this.bot.giveQuote(msg.guild, num);
+			q = (await this.bot.giveQuote(msg.guild, num) as Quote);
 			if (typeof q === 'undefined') {
-				msg.reply('Quote not found.');
+				void msg.reply('Quote not found.');
 				return;
 			}
 		} else {
-			q = this.bot.giveQuote(msg.guild);
+			q = (await this.bot.giveQuote(msg.guild) as Quote);
 		}
-		q.quote = this.memeMe(q.quote);
+
+		if (q === null) {
+			void msg.reply('Quote not found.');
+			return;
+		}
+
+		q.text = this.memeMe(q.text);
 		this.printQuote(msg, q);
 	}
 
-	mix(msg) {
-		msg.channel.send(this.memeMe(msg.content));
+	mix(msg: Discord.Message): void {
+		void msg.channel.send(this.memeMe(msg.content));
 	}
 }
 
-export default (bot: Bot) => {return new damnboiCog(bot);}
+export default (bot: Bot): damnboiCog => {return new damnboiCog(bot);}

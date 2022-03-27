@@ -8,6 +8,8 @@
 		"downlevelIteration": true,
 		"esModuleInterop": true,
 		"sourceMap": true,
-		"incremental": true
+		"incremental": true,
+		"noImplicitAny": true,
+		"noImplicitThis": true
 	}
 }

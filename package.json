@@ -27,6 +27,7 @@
 	"devDependencies": {
 		"@types/bunyan": "^1.8.6",
 		"@types/lowdb": "^1.0.9",
+		"@types/source-map-support": "^0.5.4",
 		"@typescript-eslint/eslint-plugin": "^5.16.0",
 		"@typescript-eslint/eslint-plugin-tslint": "^5.16.0",
 		"@typescript-eslint/parser": "^5.16.0",

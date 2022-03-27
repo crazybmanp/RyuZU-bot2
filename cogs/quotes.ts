@@ -1,20 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// TODO: make this no longer needed
 import Discord from 'discord.js';
 import { EntityManager } from 'typeorm';
 import { databaseCog } from '../database';
-import { Bot } from '../lib/Bot';
+import { Bot, CommandFunction } from '../lib/Bot';
 import { Cog } from '../lib/Cog';
 import { IDatabaseConsumer } from '../lib/IDatabaseConsumer';
-import { Quote } from '../Model/Quote';
-import { QuoteNumber } from '../Model/QuoteNumber';
+import { Quote } from '../model/Quote';
+import { QuoteNumber } from '../model/QuoteNumber';
 
 class quoteCog extends Cog implements IDatabaseConsumer {
 	requires: string[] = ['./database.js', './util.js'];
 	cogName: string = 'quotes';
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private serverDb: any = {};
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private subcommands: any = {};
+	private subcommands: { [key: string]: CommandFunction } = {};
 	private manager: EntityManager;
 	private databaseCog: databaseCog;
 
@@ -50,20 +49,18 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 		this.bot.getCog<databaseCog>('database').registerCog(this);
 	}
 
-	GiveQuoteSupport(guild, num) {
-		const db = this.serverDb[guild.id];
-		let ret = {};
-		if (num == null) {
-			ret = db.get('quotes').shuffle().head().value();
+	async GiveQuoteSupport(guild: Discord.Guild, num: number = undefined): Promise<Quote> {
+		let ret: Quote;
+		if (num) {
+			ret = await this.getQuoteById(num);
 		} else {
-			ret = db.get('quotes').find({
-				id: num
-			}).value();
+			ret = await this.randomQuote(guild);
 		}
-		return JSON.parse(JSON.stringify(ret));
+
+		return (JSON.parse(JSON.stringify(ret)) as Quote);
 	}
 
-	private async getCategories(guild: Discord.BaseGuild) {
+	private async getCategories(guild: Discord.BaseGuild): Promise<string[]> {
 		const results = await this.manager.createQueryBuilder(Quote, 'quote')
 			.select('quote.category')
 			.where('quote.guild = :guild', { guild: guild.id })
@@ -84,7 +81,7 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 		void msg.channel.send(this.constructQuote(quote));
 	}
 
-	private async randomQuote(guild: Discord.Guild, category = undefined): Promise<Quote>{
+	private async randomQuote(guild: Discord.Guild, category:string = undefined): Promise<Quote>{
 		const quote = this.manager.createQueryBuilder(Quote, 'quote')
 			.where('quote.guild = :guild', { guild: guild.id })
 			.orderBy('RANDOM()')
@@ -94,15 +91,15 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 		return quote.getOne();
 	}
 
-	private async getQuoteById(id: number):Promise<Quote> {
+	private async getQuoteById(id: number):Promise<Quote|null> {
 		return this.manager.findOneBy(Quote, { id: id });
 	}
 
-	private async getQuoteByNumber(guild: Discord.Guild, quoteNumber: number): Promise<Quote> {
+	private async getQuoteByNumber(guild: Discord.Guild, quoteNumber: number): Promise<Quote|null> {
 		return this.manager.findOne(Quote, {where:{ guildId: guild.id, quoteNumber: quoteNumber }});
 	}
 
-	private async getAllQuotes(guild: Discord.Guild, category:string = undefined): Promise<Quote[]> {
+	private async getAllQuotes(guild: Discord.Guild, category:string = undefined): Promise<(Quote|null)[]> {
 		if (category) {
 			return this.manager.find(Quote, { where: { guildId: guild.id, category: category } });
 		} else {
@@ -132,7 +129,7 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 			await msg.reply('This server has no quotes.');
 			return;
 		}
-		await this.printQuote(msg, quote);
+		this.printQuote(msg, quote);
 	}
 
 	private async listQuote(msg: Discord.Message): Promise<void> {
@@ -189,21 +186,21 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 			return;
 		}
 
-		const copy = JSON.parse(JSON.stringify(quote));
+		const copy = (JSON.parse(JSON.stringify(quote)) as Quote);
 
 		await this.deleteQuote(quote);
 
 		await msg.reply('Quote removed: ');
-		await this.printQuote(msg, copy);
+		this.printQuote(msg, copy);
 	}
 
 	private async addQuote(msg: Discord.Message): Promise<void> {
 		const splt = msg.content.split('"');
-		const supersplit = [];
+		const supersplit: string[][] = [];
 		splt.forEach(function (element) {
 			supersplit.push(element.split(' '));
 		}, this);
-		supersplit.forEach(function (element, i, arr) {
+		supersplit.forEach(function (element: string[], i: number, arr: string[][]) {
 			arr[i] = element.filter(Boolean);
 		}, this);
 
@@ -249,22 +246,22 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 		})
 
 		await msg.reply('Quote added:');
-		await this.printQuote(msg, quote);
+		this.printQuote(msg, quote);
 	}
 
-	private async quoteHandler(msg) {
+	private async quoteHandler(msg: Discord.Message): Promise<void> {
 		let command = msg.content.split(' ')[0];
 		msg.content = msg.content.substr(command.length + 1, msg.content.length);
 		if (command === '') {
 			command = 'random';
 		}
-		const fn = this.subcommands[command];
+		const fn: CommandFunction = this.subcommands[command];
 		if (typeof fn === 'function') {
 			await fn(msg);
 		} else {
-			msg.reply('Cannot find subcommand... [' + command + ']');
+			void msg.reply('Cannot find subcommand... [' + command + ']');
 		}
 	}
 }
 
-export default (bot: Bot) => {return new quoteCog(bot);}
+export default (bot: Bot): quoteCog => {return new quoteCog(bot);}

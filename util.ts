@@ -1,11 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// TODO: make this no longer needed
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
+import Discord from 'discord.js';
 
 class utilCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'util';
 
-	printLong(channel, items) {
+	async printLong(channel: Discord.TextChannel, items: string[]): Promise<void> {
 		const messageList = [];
 		let curMessage = '';
 		for (let i = 0; i < items.length; i++) {
@@ -18,13 +21,13 @@ class utilCog extends Cog {
 		messageList.push(curMessage);
 
 		for (let i = 0; i < messageList.length; i++) {
-			channel.send(messageList[i]);
+			await channel.send(messageList[i]);
 		}
 	}
 
-	setup() {
-		this.bot.printLong = this.printLong;
+	setup(): void {
+		this.bot.printLong = this.printLong.bind(this);
 	}
 }
 
-export default (bot: Bot) => {return new utilCog(bot);}
+export default (bot: Bot): utilCog => {return new utilCog(bot);}
