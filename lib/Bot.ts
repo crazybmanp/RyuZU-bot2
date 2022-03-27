@@ -1,11 +1,14 @@
-import Discord, { Client, Message } from 'discord.js';
+import Discord, { Client, Guild, Message, PresenceData } from 'discord.js';
 import fs from 'fs';
 import { Cog } from './Cog';
 import Logger from 'bunyan';
 import { loggerCog } from '../logger';
+import { ActivityTypes } from 'discord.js/typings/enums';
 
 type CogFactory = (bot: Bot) => Cog;
 //type CommandFunction = (msg: Message) => Promise<void>|void
+
+const coreCogs = ['./admin.js', './util.js'];
 
 export class Bot {
 	constructor(configFile: string) {
@@ -58,11 +61,36 @@ export class Bot {
 
 	logger: Logger;
 
+	async setup() {
+		// register base commands
+		this.registerCommands();
+
+		// Load Core Cogs
+		coreCogs.forEach(function (element) {
+			this.loadCog(element);
+		}, this);
+
+		// Load Startup Cogs
+		this.config.startupExtensions.forEach(function (element) {
+			this.loadCog(element);
+		}, this);
+
+		this.logger.info(`Starting postSetup`);
+		const postSetup: Promise<unknown>[] = [];
+		for (const cog in this.loadedCogs) {
+			postSetup.push(this.loadedCogs[cog].postSetup());
+		}
+		await Promise.all(postSetup);
+
+		// start the client
+		await this.client.login(this.config.token);
+	}
+
 	registerCommand(command, func) {
 		this.listeners[command] = func;
 	}
 
-	loadCog(cogname: string) {
+	async loadCog(cogname: string) {
 		if (cogname in this.loadedCogs) {
 			return;
 		}
@@ -72,11 +100,11 @@ export class Bot {
 			if (Array.isArray(e.requires) && e.requires.length > 0) {
 				this.logger.info('Module ' + cogname + ' requires: ' + e.requires);
 				for (let i = 0; i < e.requires.length; i++) {
-					this.loadCog(e.requires[i]);
+					await this.loadCog(e.requires[i]);
 				}
 			}
 			this.logger.info('Loading ' + cogname + '...');
-			e.setup();
+			await e.setup();
 			this.loadedCogs[e.cogName] = e;
 		} catch (err) {
 			this.logger.error('Failed to load ' + cogname, { err: err });
@@ -90,6 +118,69 @@ export class Bot {
 			return undefined;
 		}
 		return cog as Type;
+	}
+
+	async doReady() {
+		this.logger.info(`Logged in as ${this.client.user.tag}! Now readying up!`);
+		for (const cogName in this.loadedCogs) {
+			const cog = this.loadedCogs[cogName];
+			this.logger.info('Readying ' + cogName);
+			await cog.ready();
+		}
+
+		const presence: PresenceData = {
+			status: 'online',
+			afk: false,
+			activities: [{
+				name: this.config.commandString + ' ' + this.config.gameMessage + '[' + this.version + ']',
+				type: ActivityTypes.PLAYING
+			}]
+		};
+		this.client.user.setPresence(presence);
+		this.ready = true;
+		this.logger.info('RyuZu ' + this.version + ' ready!');
+	}
+
+	doGuildCreate(guild: Guild) {
+		this.logger.info(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
+		for (const cogName in this.loadedCogs) {
+			const cog = this.loadedCogs[cogName];
+			this.logger.info('Notifying ' + cogName + ' of new guild.');
+			void cog.newGuild(guild);
+		}
+	}
+
+	async doMessage(msg: Message) {
+		if (!this.ready) {
+			this.logger.warn('BOT RECIEVED MESSAGE BEFORE READY COMPLETED');
+			return;
+		}
+		if (!msg.content.startsWith(this.config.commandString)) {
+			return;
+		}
+		msg.content = msg.content.substr(this.config.commandString.length, msg.content.length);
+		const command = msg.content.split(' ')[0];
+		msg.content = msg.content.substr(command.length + 1, msg.content.length);
+		const fn = this.listeners[command];
+		await msg.channel.sendTyping();
+		if (typeof fn === 'function') {
+			try {
+				await fn(msg);
+			} catch (error) {
+				this.logger.error('Command error on input: ' + msg.content, { error });
+			}
+		} else {
+			void msg.reply('I don\'t quite know what you want from me... [not a command]');
+		}
+	}
+
+	registerCommands() {
+		this.client.on('ready', this.doReady.bind(this));
+		this.client.on('guildCreate', this.doGuildCreate.bind(this));
+		this.client.on('message', this.doMessage.bind(this));
+		this.registerCommand('ping', async function (msg) {
+			await msg.reply('Pong!');
+		});
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

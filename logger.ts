@@ -15,7 +15,7 @@ export class loggerCog extends Cog {
 		const streams: {level: bunyan.LogLevel, type?: string, stream: NodeJS.WriteStream|NodeJS.WritableStream}[] = [
 			{
 				stream: process.stdout,
-				level: this.bot.config.devMode ? 'debug' : 'info',
+				level: this.bot.config.devMode ? 'trace' : 'info',
 			},
 		];
 

@@ -49,14 +49,12 @@ export class databaseCog extends Cog implements IFunctionProvider{
 		await datasource.synchronize();
 		this.datasource = datasource;
 
-		for (const consumer of this.registeredConsumers) {
-			consumer.giveManager(this.getManager(), this);
-		}
-	}
-
-	async ready(): Promise<void> {
 		for (const [,guild] of await this.bot.client.guilds.fetch()) {
 			await this.addGuild(guild);
+		}
+
+		for (const consumer of this.registeredConsumers) {
+			consumer.giveManager(this.getManager(), this);
 		}
 	}
 
