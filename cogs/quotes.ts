@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-// TODO: make this no longer needed
 import Discord, { GuildChannel, TextChannel } from 'discord.js';
 import { EntityManager } from 'typeorm';
 import { adminCog } from '../admin';
@@ -23,13 +21,13 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		super(bot);
 
 		this.subcommands = {
-			'random': this.commandRandomQuote.bind(this),
-			'list': this.listQuote.bind(this),
-			'get': this.getQuote.bind(this),
-			'give': this.getQuote.bind(this),
-			'delete': this.commandDeleteQuote.bind(this),
-			'remove': this.commandDeleteQuote.bind(this),
-			'add': this.addQuote.bind(this)
+			'random': (this.commandRandomQuote.bind(this) as CommandFunction),
+			'list': (this.listQuote.bind(this) as CommandFunction),
+			'get': (this.getQuote.bind(this) as CommandFunction),
+			'give': (this.getQuote.bind(this) as CommandFunction),
+			'delete': (this.commandDeleteQuote.bind(this) as CommandFunction),
+			'remove': (this.commandDeleteQuote.bind(this) as CommandFunction),
+			'add': (this.addQuote.bind(this) as CommandFunction)
 		};
 	}
 

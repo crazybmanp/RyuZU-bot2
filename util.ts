@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-// TODO: make this no longer needed
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
 import Discord from 'discord.js';

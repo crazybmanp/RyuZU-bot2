@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-// TODO: Get rid of this disable
 import Discord from 'discord.js';
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
@@ -52,10 +50,10 @@ export class adminCog extends Cog {
 	async say(msg: Discord.Message): Promise<void> {
 		await msg.delete();
 		msg.channel.send(msg.content)
-			.catch( (err) => {
+			.catch( (err: unknown) => {
 				this.bot.logger.error('Error sending a message', { err });
 				msg.channel.send('I can\'t say that for some reason')
-					.catch( (err2) => {
+					.catch( (err2: unknown) => {
 						this.bot.logger.error('Error sending message saying we had an error sending a message', { err2 });
 					});
 			});

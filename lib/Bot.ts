@@ -97,8 +97,7 @@ export class Bot {
 			// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
 			const e: Cog = (require(`../${cogname}`).default as CogFactory)(this);
 			if (Array.isArray(e.requires) && e.requires.length > 0) {
-				// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
-				this.logger.info('Module ' + cogname + ' requires: ' + e.requires); // TODO: Convert to template string
+				this.logger.info(`Module ${cogname} requires ${e.requires.join(', ')}`);
 				for (let i = 0; i < e.requires.length; i++) {
 					await this.loadCog(e.requires[i]);
 				}
