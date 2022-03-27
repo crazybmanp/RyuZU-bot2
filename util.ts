@@ -4,7 +4,7 @@ import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
 import Discord from 'discord.js';
 
-class utilCog extends Cog {
+export class utilCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'util';
 
@@ -23,10 +23,6 @@ class utilCog extends Cog {
 		for (let i = 0; i < messageList.length; i++) {
 			await channel.send(messageList[i]);
 		}
-	}
-
-	setup(): void {
-		this.bot.printLong = this.printLong.bind(this);
 	}
 }
 

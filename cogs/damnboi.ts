@@ -3,13 +3,13 @@ import { Bot } from '../lib/Bot';
 import { Cog } from '../lib/Cog';
 import Discord from 'discord.js';
 import { Quote } from '../model/Quote';
+import { quoteCog } from './quotes';
 
 class damnboiCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'damnboi';
 
 	setup(): void {
-		this.bot.memeMe = this.memeMe.bind(this);
 		this.bot.registerCommand('damnboi', this.damn.bind(this));
 		this.bot.registerCommand('mix', this.mix.bind(this));
 		this.bot.registerCommand('damnquote', this.quotedamn.bind(this));
@@ -18,8 +18,8 @@ class damnboiCog extends Cog {
 		this.bot.registerCommand('stronkout', this.quotedamn.bind(this));
 	}
 
-	memeMe(msg: string): string {
-		const arr = msg.split(' ');
+	public memeMe(text: string): string {
+		const arr = text.split(' ');
 		this._shuffle(arr);
 		return arr.join(' ');
 	}
@@ -58,29 +58,29 @@ class damnboiCog extends Cog {
 	}
 
 	async quotedamn(msg: Discord.Message): Promise<void> {
-		let q;
+		let quote;
 		if (msg.content.length > 0) {
 			const num: number = parseInt(msg.content);
 			if (isNaN(num)) {
 				void msg.reply('You need to give a quote number in order to get a quote');
 				return;
 			}
-			q = (await this.bot.giveQuote(msg.guild, num) as Quote);
-			if (typeof q === 'undefined') {
+			quote = await this.bot.getCog<quoteCog>('quote').GiveQuote(msg.guild, num);
+			if (typeof quote === 'undefined') {
 				void msg.reply('Quote not found.');
 				return;
 			}
 		} else {
-			q = (await this.bot.giveQuote(msg.guild) as Quote);
+			quote = await this.bot.getCog<quoteCog>('quote').GiveQuote(msg.guild);
 		}
 
-		if (q === null) {
+		if (quote === null) {
 			void msg.reply('Quote not found.');
 			return;
 		}
 
-		q.text = this.memeMe(q.text);
-		this.printQuote(msg, q);
+		quote.text = this.memeMe(quote.text);
+		this.printQuote(msg, quote);
 	}
 
 	mix(msg: Discord.Message): void {

@@ -4,13 +4,11 @@ import Discord from 'discord.js';
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
 
-class adminCog extends Cog {
+export class adminCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'admin';
 
 	setup(): void {
-		this.bot.isOwner = this.isOwner.bind(this);
-		this.bot.isMod = this.isModOnChannel.bind(this);
 		this.bot.registerCommand('say', this.say.bind(this));
 		// bot.registerCommand('clean', clean);
 		// bot.registerCommand('clear', clean);
@@ -30,23 +28,23 @@ class adminCog extends Cog {
 		return false;
 	}
 
-	isManagerOnServer(author: Discord.GuildMember): boolean {
+	public isManagerOnServer(author: Discord.GuildMember): boolean {
 		return this.hasPermOnServer('MANAGE_GUILD', author);
 	}
 
-	isModOnServer(author: Discord.GuildMember): boolean {
+	public isModOnServer(author: Discord.GuildMember): boolean {
 		return this.hasPermOnServer('MANAGE_MESSAGES', author);
 	}
 
-	isModOnChannel(channel: Discord.GuildChannel, author: Discord.User): boolean {
+	public isModOnChannel(channel: Discord.GuildChannel, author: Discord.User): boolean {
 		return this.hasPermOnChannel('MANAGE_MESSAGES', channel, author);
 	}
 
-	hasPermOnServer(perm: Discord.PermissionString, author: Discord.GuildMember): boolean {
+	public hasPermOnServer(perm: Discord.PermissionString, author: Discord.GuildMember): boolean {
 		return author.permissions.has('MANAGE_MESSAGES');
 	}
 
-	hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel, author: Discord.User): boolean {
+	public hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel, author: Discord.User): boolean {
 		const perms = channel.permissionsFor(author);
 		return perms.has('MANAGE_MESSAGES');
 	}

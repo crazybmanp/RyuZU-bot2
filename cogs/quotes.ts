@@ -1,15 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // TODO: make this no longer needed
-import Discord from 'discord.js';
+import Discord, { GuildChannel, TextChannel } from 'discord.js';
 import { EntityManager } from 'typeorm';
+import { adminCog } from '../admin';
 import { databaseCog } from '../database';
 import { Bot, CommandFunction } from '../lib/Bot';
 import { Cog } from '../lib/Cog';
 import { IDatabaseConsumer } from '../lib/IDatabaseConsumer';
 import { Quote } from '../model/Quote';
 import { QuoteNumber } from '../model/QuoteNumber';
+import { utilCog } from '../util';
 
-class quoteCog extends Cog implements IDatabaseConsumer {
+export class quoteCog extends Cog implements IDatabaseConsumer {
 	requires: string[] = ['./database.js', './util.js'];
 	cogName: string = 'quotes';
 
@@ -44,12 +46,11 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 	}
 
 	setup():void {
-		this.bot.giveQuote = this.GiveQuoteSupport.bind(this);
 		this.bot.registerCommand('quote', this.quoteHandler.bind(this));
 		this.bot.getCog<databaseCog>('database').registerCog(this);
 	}
 
-	async GiveQuoteSupport(guild: Discord.Guild, num: number = undefined): Promise<Quote> {
+	public async GiveQuote(guild: Discord.Guild, num: number = undefined): Promise<Quote> {
 		let ret: Quote;
 		if (num) {
 			ret = await this.getQuoteById(num);
@@ -144,14 +145,14 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 
 		const quotes = await this.getAllQuotes(msg.guild, category);
 
-		const quoteText: string = quotes.map((x) => this.constructQuote(x)).join('\n');
+		const quoteText: string[] = quotes.map((x) => this.constructQuote(x));
 
 		if (quoteText.length < 1) {
 			void msg.reply('found no quotes...');
 			return;
 		}
 
-		this.bot.printLong(msg.channel, quoteText);
+		void this.bot.getCog<utilCog>('util').printLong((msg.channel as TextChannel), quoteText);
 	}
 
 	private async getQuote(msg: Discord.Message): Promise<void> {
@@ -170,7 +171,7 @@ class quoteCog extends Cog implements IDatabaseConsumer {
 	}
 
 	private async commandDeleteQuote(msg: Discord.Message): Promise<void> {
-		if (!this.bot.isMod(msg.channel, msg.author)) {
+		if (!this.bot.getCog<adminCog>('admin').isModOnChannel((msg.channel as GuildChannel), msg.author)) {
 			void msg.reply('You are not allowed to do that');
 		}
 		const num: number = parseInt(msg.content);

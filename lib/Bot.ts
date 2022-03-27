@@ -21,9 +21,6 @@ export class Bot {
 
 	logger: Logger;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	[key: string]: any; //TODO: this is a hack, fix it
-
 	constructor(configFile: string) {
 		this.ready = false;
 		this.loadedCogs = {};
