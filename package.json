@@ -7,6 +7,7 @@
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"dev": "nodemon -L -x \"yarn build && node app.js || exit 1\" | bunyan",
 		"dev-start": "yarn build && node app.js | bunyan",
+		"dev-dry": "node app.js | bunyan",
 		"build": "concurrently 'eslint . --cache' 'tsc'"
 	},
 	"author": "Crazybmanp",

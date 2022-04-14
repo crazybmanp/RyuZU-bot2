@@ -219,7 +219,7 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 			}
 
 			void this.bot.getCog<utilCog>('util').printLong((interaction.channel as TextChannel), quoteText);
-			void interaction.deleteReply();
+			void interaction.editReply(category ? `Here are all of the quotes in ${category}`: 'Here are all of the quotes');
 		} catch (error) {
 			this.bot.logger.error(error);
 			void interaction.editReply('Something went wrong.');
