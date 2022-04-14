@@ -10,6 +10,7 @@ export type DatabaseConfig = {
 
 export type Config = {
 	token: string,
+	applicationId: string,
 	startupExtensions: string[],
 	owners: string[],
 	commandString: string,
@@ -19,4 +20,8 @@ export type Config = {
 	devMode: boolean,
 	database: DatabaseConfig,
 	stackdriverName: string,
+	CommandServerRegistration:
+	{
+		CommandServerList: [string]
+	}
 }

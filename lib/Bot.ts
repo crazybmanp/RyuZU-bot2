@@ -1,18 +1,27 @@
-import Discord, { Client, Guild, Message, PresenceData } from 'discord.js';
+import Discord, { Client, CommandInteraction, Guild, Interaction, PresenceData } from 'discord.js';
+import { REST } from '@discordjs/rest'
+import { Routes } from 'discord-api-types/v9';
 import fs from 'fs';
 import { Cog } from './Cog';
 import Logger from 'bunyan';
 import { loggerCog } from '../logger';
 import { ActivityTypes } from 'discord.js/typings/enums';
 import { Config } from '../model/Config';
+import { SlashCommandBuilder } from '@discordjs/builders';
 
 export type CogFactory = (bot: Bot) => Cog;
-export type CommandFunction = (msg: Message) => Promise<void>|void
+export type CommandFunction = (interaction: Interaction) => Promise<void> | void;
+export type CommandRegistration = {
+	command: string,
+	commandBuilder: Partial<SlashCommandBuilder>,
+	function: CommandFunction,
+}
+
 
 const coreCogs = ['./admin.js', './util.js'];
 
 export class Bot {
-	listeners: { [key: string]: CommandFunction };
+	commands: CommandRegistration[];
 	config: Config;
 	client: Client;
 	loadedCogs: { [key: string]: Cog };
@@ -21,13 +30,22 @@ export class Bot {
 
 	logger: Logger;
 
+	readonly devMode: boolean;
+	readonly commandDevMode = (): boolean => !!this.commandGuildServer;
+	readonly commandGuildServer: string[];
+
 	constructor(configFile: string) {
 		this.ready = false;
 		this.loadedCogs = {};
-		this.listeners = {};
+		this.commands = [];
 
 		const contents = fs.readFileSync(configFile).toString();
-		this.config = (JSON.parse(contents) as Config);
+		this.config = (JSON.parse(contents) as Config); //TODO: Is there a way to make this type safe better?
+
+		this.devMode = this.config.devMode ?? false;
+		if (this.devMode && this.config.CommandServerRegistration) {
+			this.commandGuildServer = this.config.CommandServerRegistration.CommandServerList;
+		}
 
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-var-requires
 		this.version = (require('../package.json').version as string);
@@ -74,19 +92,47 @@ export class Bot {
 			await this.loadCog(cog);
 		}
 
+		await this.registerInteractions();
+
 		// start the client
 		await this.client.login(this.config.token);
 
 		this.logger.info(`Starting postSetup`);
-		const postSetup: (Promise<unknown>|void)[] = [];
+		const postSetup: (Promise<unknown> | void)[] = [];
 		for (const cog in this.loadedCogs) {
 			postSetup.push(this.loadedCogs[cog].postSetup());
 		}
 		await Promise.all(postSetup);
 	}
 
-	registerCommand(command: string, func: CommandFunction): void {
-		this.listeners[command] = func;
+	private async registerInteractions(): Promise<void> {
+		const rest = new REST({ version: '9' }).setToken(this.config.token);
+
+		const commands = this.commands.map(c => c.commandBuilder.toJSON());
+
+		this.logger.debug(`Registering ${commands.length} commands`);
+
+		try {
+			if (this.commandDevMode()) {
+				this.logger.info(`Registering commands in debug mode for ${this.commandGuildServer.join(', ')}`);
+				for (const guild of this.commandGuildServer) {
+					await rest.put(Routes.applicationGuildCommands(this.config.applicationId, guild), { body: commands });
+				}
+			} else {
+				await rest.put(Routes.applicationCommands(this.config.applicationId), { body: commands });
+			}
+		} catch (error) {
+			this.logger.error(`Error while registering interactions to the discord REST api`, error);
+			process.exit();
+		}
+	}
+
+	registerCommand(reg: CommandRegistration): void {
+		if (this.ready) {
+			this.logger.error(`Cog tried to register command ${reg.command} after bot was ready. Commands must be registered before the bot is ready.`);
+			return;
+		}
+		this.commands.push(reg);
 	}
 
 	async loadCog(cogname: string): Promise<void> {
@@ -150,36 +196,53 @@ export class Bot {
 		}
 	}
 
-	async doMessage(msg: Message): Promise<void> {
+	async doInteractionCreate(interaction: Interaction): Promise<void> {
 		if (!this.ready) {
-			this.logger.warn('BOT RECIEVED MESSAGE BEFORE READY COMPLETED');
+			this.logger.warn('BOT RECIEVED INTERACTION BEFORE READY COMPLETED');
 			return;
 		}
-		if (!msg.content.startsWith(this.config.commandString)) {
-			return;
-		}
-		msg.content = msg.content.substr(this.config.commandString.length, msg.content.length);
-		const command = msg.content.split(' ')[0];
-		msg.content = msg.content.substr(command.length + 1, msg.content.length);
-		const fn = this.listeners[command];
-		await msg.channel.sendTyping();
-		if (typeof fn === 'function') {
-			try {
-				await fn(msg);
-			} catch (error: unknown) {
-				this.logger.error('Command error on input: ' + msg.content, { error });
+		if (interaction.isCommand()) {
+			const command = this.commands.find(c => c.command === interaction.commandName);
+			if (!command) {
+				this.logger.error('Command not found: ' + interaction.commandName);
+				await interaction.reply('Something seems to be wrong with this command. Please contact the owner.');
 			}
-		} else {
-			void msg.reply('I don\'t quite know what you want from me... [not a command]');
+			await command.function(interaction);
 		}
 	}
+
+	// async doMessage(msg: Message): Promise<void> {
+	// 	return;
+	// msg.content = msg.content.substr(this.config.commandString.length, msg.content.length);
+	// const command = msg.content.split(' ')[0];
+	// msg.content = msg.content.substr(command.length + 1, msg.content.length);
+	// const fn = this.commands[command].function;
+	// await msg.channel.sendTyping();
+	// if (typeof fn === 'function') {
+	// 	try {
+	// 		await fn(msg);
+	// 	} catch (error: unknown) {
+	// 		this.logger.error('Command error on input: ' + msg.content, { error });
+	// 	}
+	// } else {
+	// 	void msg.reply('I don\'t quite know what you want from me... [not a command]');
+	// }
 
 	registerCommands(): void {
 		this.client.on('ready', this.doReady.bind(this));
 		this.client.on('guildCreate', this.doGuildCreate.bind(this));
-		this.client.on('message', this.doMessage.bind(this));
-		this.registerCommand('ping', async function (msg) {
-			await msg.reply('Pong!');
-		});
+		this.client.on('interactionCreate', this.doInteractionCreate.bind(this));
+		//this.client.on('message', this.doMessage.bind(this));
+		const cb = new SlashCommandBuilder()
+			.setName('ping')
+			.setDescription('Ping the bot');
+		const pingCommand: CommandRegistration = {
+			command: 'ping',
+			commandBuilder: cb,
+			function: (async function (interaction: CommandInteraction) {
+				await interaction.reply('Pong!');
+			})
+		};
+		this.registerCommand(pingCommand);
 	}
 }

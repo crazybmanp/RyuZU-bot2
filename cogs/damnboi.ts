@@ -4,18 +4,42 @@ import { Cog } from '../lib/Cog';
 import Discord from 'discord.js';
 import { Quote } from '../model/Quote';
 import { quoteCog } from './quotes';
+import { SlashCommandBuilder } from '@discordjs/builders';
 
 class damnboiCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'damnboi';
 
 	setup(): void {
-		this.bot.registerCommand('damnboi', this.damn.bind(this));
-		this.bot.registerCommand('mix', this.mix.bind(this));
-		this.bot.registerCommand('damnquote', this.quotedamn.bind(this));
-		this.bot.registerCommand('strokeout', this.quotedamn.bind(this));
-		this.bot.registerCommand('sromkoot', this.quotedamn.bind(this));
-		this.bot.registerCommand('stronkout', this.quotedamn.bind(this));
+		this.bot.registerCommand({
+			command: 'damnboi',
+			commandBuilder: new SlashCommandBuilder()
+				.setName('damnboi')
+				.setDescription('Prints a meme'),
+			function: this.damn.bind(this),
+		})
+		this.bot.registerCommand({
+			command: 'mix',
+			commandBuilder: new SlashCommandBuilder()
+				.setName('mix')
+				.setDescription('Mixes a string')
+				.addStringOption(option => option
+					.setName('text')
+					.setDescription('The text to mix')
+					.setRequired(true)),
+			function: this.mix.bind(this),
+		});
+		this.bot.registerCommand({
+			command: 'strokeout',
+			commandBuilder: new SlashCommandBuilder()
+				.setName('strokeout')
+				.setDescription('mixes a quote')
+				.addNumberOption(option => option
+					.setName('quote')
+					.setDescription('The quote id to strokout')
+					.setRequired(false)),
+			function: this.quotedamn.bind(this),
+		});
 	}
 
 	public memeMe(text: string): string {
@@ -24,8 +48,8 @@ class damnboiCog extends Cog {
 		return arr.join(' ');
 	}
 
-	damn(msg: Discord.Message): void {
-		void msg.channel.send(this.memeMe(memeMsg));
+	damn(interaction: Discord.CommandInteraction): void {
+		void interaction.reply(this.memeMe(memeMsg));
 	}
 
 	// Shamelessly stolen from stack overflow
@@ -49,43 +73,36 @@ class damnboiCog extends Cog {
 		return array;
 	}
 
-	private constructQuote(quote:Quote): string {
+	private constructQuote(quote: Quote): string {
 		return `${quote.quoteNumber} (${quote.category}): ${quote.text}`;
 	}
 
-	private printQuote(msg: Discord.Message, quote: Quote): void {
-		void msg.channel.send(this.constructQuote(quote));
-	}
-
-	async quotedamn(msg: Discord.Message): Promise<void> {
+	async quotedamn(interaction: Discord.CommandInteraction): Promise<void> {
 		let quote;
-		if (msg.content.length > 0) {
-			const num: number = parseInt(msg.content);
-			if (isNaN(num)) {
-				void msg.reply('You need to give a quote number in order to get a quote');
-				return;
-			}
-			quote = await this.bot.getCog<quoteCog>('quote').GiveQuote(msg.guild, num);
+
+		const num = interaction.options.getNumber('quote');
+		if (num) {
+			quote = await this.bot.getCog<quoteCog>('quotes').GiveQuote(interaction.guild, num);
 			if (typeof quote === 'undefined') {
-				void msg.reply('Quote not found.');
+				void interaction.reply('Quote not found.');
 				return;
 			}
 		} else {
-			quote = await this.bot.getCog<quoteCog>('quote').GiveQuote(msg.guild);
+			quote = await this.bot.getCog<quoteCog>('quotes').GiveQuote(interaction.guild);
 		}
 
 		if (quote === null) {
-			void msg.reply('Quote not found.');
+			void interaction.reply('Quote not found.');
 			return;
 		}
 
 		quote.text = this.memeMe(quote.text);
-		this.printQuote(msg, quote);
+		void interaction.reply(this.constructQuote(quote));
 	}
 
-	mix(msg: Discord.Message): void {
-		void msg.channel.send(this.memeMe(msg.content));
+	mix(msg: Discord.CommandInteraction): void {
+		void msg.reply(this.memeMe(msg.options.getString('text')));
 	}
 }
 
-export default (bot: Bot): damnboiCog => {return new damnboiCog(bot);}
+export default (bot: Bot): damnboiCog => { return new damnboiCog(bot); }
