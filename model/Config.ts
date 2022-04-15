@@ -13,7 +13,6 @@ export type Config = {
 	applicationId: string,
 	startupExtensions: string[],
 	owners: string[],
-	commandString: string,
 	gameMessage: string,
 	description: string,
 	issuesPage: string,

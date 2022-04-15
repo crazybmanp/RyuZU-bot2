@@ -177,7 +177,7 @@ export class Bot {
 			status: 'online',
 			afk: false,
 			activities: [{
-				name: this.config.commandString + ' ' + this.config.gameMessage + '[' + this.version + ']',
+				name: `${this.config.gameMessage}[${this.version}]`,
 				type: ActivityTypes.PLAYING
 			}]
 		};
