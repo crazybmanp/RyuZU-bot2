@@ -1,31 +1,33 @@
-const bunyan = require('bunyan');
-const LoggingBunyan = require('@google-cloud/logging-bunyan').LoggingBunyan;
+import bunyan from 'bunyan';
+import { LoggingBunyan } from '@google-cloud/logging-bunyan';
+import { Bot } from './lib/Bot';
+import { Cog } from './lib/Cog';
 
-var bot = {};
+export class loggerCog extends Cog {
+	requires: string[] = [];
+	cogName: string = 'logger';
 
-var preinit = function (b) {
-  bot = b;
+	preinit(): void {
+		const lb = new LoggingBunyan({
+			logName: this.bot.config.stackdriverName ? this.bot.config.stackdriverName : 'ryuzu',
+		});
 
-  const lb = new LoggingBunyan({
-    logName: bot.config.stackdriverName ? bot.config.stackdriverName : 'ryuzu',
-  });
-  
-  const streams = [
-    {
-      stream: process.stdout,
-      level: bot.config.devMode ? 'debug' : 'info'
-    },
-  ];
+		const streams: {level: bunyan.LogLevel, type?: string, stream: NodeJS.WriteStream|NodeJS.WritableStream}[] = [
+			{
+				stream: process.stdout,
+				level: this.bot.config.devMode ? 'trace' : 'info',
+			},
+		];
 
-  if (!bot.config.devMode) {
-    streams.push(lb.stream('info'));
-  }
+		if (!this.bot.config.devMode) {
+			streams.push(lb.stream('info'));
+		}
 
-  bot.logger = bunyan.createLogger({
-    name: 'RyuZU2',
-    streams
-  });
+		this.bot.logger = bunyan.createLogger({
+			name: 'RyuZU2',
+			streams: streams
+		});
+	}
 }
 
-exports.requires = [];
-exports.preinit = preinit;
+export default (bot: Bot): loggerCog => { return new loggerCog(bot); };
