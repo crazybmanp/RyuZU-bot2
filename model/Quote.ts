@@ -2,7 +2,7 @@ import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, Primary
 import { Guild } from './Guild';
 import { User } from './User';
 
-@Entity({ name: 'Quote', synchronize: true })
+@Entity({ name: 'Quote' })
 @Index(['guildId', 'quoteNumber'], { unique: true })
 export class Quote {
 	@PrimaryGeneratedColumn()

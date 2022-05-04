@@ -1,7 +1,7 @@
 import { Column, Entity, OneToOne, PrimaryColumn } from 'typeorm';
 import { Guild } from './Guild';
 
-@Entity({ name: 'QuoteNumber', synchronize: true })
+@Entity({ name: 'QuoteNumber' })
 export class QuoteNumber {
 	@OneToOne(() => Guild, guild => guild.id)
 	guild: Guild;

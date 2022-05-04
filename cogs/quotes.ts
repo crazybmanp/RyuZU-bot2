@@ -5,7 +5,7 @@ import { adminCog } from '../admin';
 import { databaseCog } from '../database';
 import { Bot } from '../lib/Bot';
 import { Cog } from '../lib/Cog';
-import { IDatabaseConsumer } from '../lib/IDatabaseConsumer';
+import { IDatabaseConsumer } from '../lib/interfaces/IDatabaseConsumer';
 import { SubcommandHandler } from '../lib/Subcommand';
 import { Quote } from '../model/Quote';
 import { QuoteNumber } from '../model/QuoteNumber';

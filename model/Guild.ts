@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryColumn } from 'typeorm';
 
-@Entity({ name: 'Guild', synchronize: true })
+@Entity({ name: 'Guild' })
 export class Guild {
 	@PrimaryColumn()
 	id: string;

@@ -17,7 +17,6 @@ export type CommandRegistration = {
 	function: CommandFunction,
 }
 
-
 const coreCogs = ['./admin.js', './util.js'];
 
 export class Bot {
@@ -32,7 +31,7 @@ export class Bot {
 
 	readonly devMode: boolean;
 	readonly commandDevMode = (): boolean => !!this.commandGuildServer;
-	readonly commandGuildServer: string[];
+	readonly commandGuildServer: string[]|undefined;
 
 	constructor(configFile: string) {
 		this.ready = false;
@@ -92,11 +91,6 @@ export class Bot {
 			await this.loadCog(cog);
 		}
 
-		await this.registerInteractions();
-
-		// start the client
-		await this.client.login(this.config.token);
-
 		this.logger.info(`Starting postSetup`);
 		const postSetup: (Promise<unknown> | void)[] = [];
 		for (const cog in this.loadedCogs) {
@@ -105,12 +99,19 @@ export class Bot {
 		await Promise.all(postSetup);
 	}
 
+	async connectToDiscord(): Promise<void> {
+		await this.registerInteractions();
+
+		// start the client
+		await this.client.login(this.config.token);
+	}
+
 	private async registerInteractions(): Promise<void> {
 		const rest = new REST({ version: '9' }).setToken(this.config.token);
 
 		const commands = this.commands.map(c => c.commandBuilder.toJSON());
 
-		this.logger.debug(`Registering ${commands.length} commands`);
+		this.logger.info(`Registering ${commands.length} commands`);
 
 		try {
 			if (this.commandDevMode()) {
@@ -124,6 +125,42 @@ export class Bot {
 		} catch (error) {
 			this.logger.error(`Error while registering interactions to the discord REST api`, error);
 			process.exit();
+		}
+	}
+
+	public async deregisterInteractions(): Promise<void> {
+		const rest = new REST({ version: '9' }).setToken(this.config.token);
+
+		const promises: Promise<unknown>[] = [];
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const appCommands = (await rest.get(Routes.applicationCommands(this.config.applicationId)) as any[]);
+
+			this.logger.info(`Deregistering ${appCommands.length} commands`);
+
+			for (const command of appCommands) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions
+				promises.push(rest.delete(`${Routes.applicationCommands(this.config.applicationId)}/${command.id}`));
+			}
+
+			if (this.commandGuildServer) {
+				for (const guild of this.commandGuildServer) {
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					const appGuildCommands = (await rest.get(Routes.applicationGuildCommands(this.config.applicationId, guild)) as any[]);
+
+					this.logger.info(`Deregistering ${appGuildCommands.length} commands in ${guild}`);
+
+					for (const command of appGuildCommands) {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions
+						promises.push(rest.delete(`${Routes.applicationGuildCommands(this.config.applicationId, guild)}/${command.id}`));
+					}
+				}
+			}
+
+			await Promise.all(promises);
+		} catch (error) {
+			this.logger.error(`Error while deregistering interactions to the discord REST api`, error);
+			process.exit(1);
 		}
 	}
 
@@ -142,7 +179,7 @@ export class Bot {
 		try {
 			// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
 			const e: Cog = (require(`../${cogname}`).default as CogFactory)(this);
-			if (Array.isArray(e.requires) && e.requires.length > 0) {
+			if (e.requires.length > 0) {
 				this.logger.info(`Module ${cogname} requires ${e.requires.join(', ')}`);
 				for (let i = 0; i < e.requires.length; i++) {
 					await this.loadCog(e.requires[i]);
@@ -210,23 +247,6 @@ export class Bot {
 			await command.function(interaction);
 		}
 	}
-
-	// async doMessage(msg: Message): Promise<void> {
-	// 	return;
-	// msg.content = msg.content.substr(this.config.commandString.length, msg.content.length);
-	// const command = msg.content.split(' ')[0];
-	// msg.content = msg.content.substr(command.length + 1, msg.content.length);
-	// const fn = this.commands[command].function;
-	// await msg.channel.sendTyping();
-	// if (typeof fn === 'function') {
-	// 	try {
-	// 		await fn(msg);
-	// 	} catch (error: unknown) {
-	// 		this.logger.error('Command error on input: ' + msg.content, { error });
-	// 	}
-	// } else {
-	// 	void msg.reply('I don\'t quite know what you want from me... [not a command]');
-	// }
 
 	registerCommands(): void {
 		this.client.on('ready', this.doReady.bind(this));

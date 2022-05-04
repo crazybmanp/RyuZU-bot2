@@ -1,7 +1,7 @@
 import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
 import { GuildMember } from './GuildMember';
 
-@Entity({ name: 'User', synchronize: true })
+@Entity({ name: 'User' })
 export class User {
 	@PrimaryColumn()
 	id: string;
