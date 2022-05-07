@@ -40,6 +40,48 @@ class damnboiCog extends Cog {
 					.setRequired(false)),
 			function: this.quotedamn.bind(this),
 		});
+		this.bot.registerCommand({
+			command: 'portugese',
+			commandBuilder: new SlashCommandBuilder()
+				.setName('portugese')
+				.setDescription('batata')
+				.addStringOption(option => option
+					.setName('text')
+					.setDescription('The text to translate')
+					.setRequired(true)),
+			function: this.batata.bind(this),
+		});
+	}
+
+	private static shittyStringHash(str: string): number {
+		let hash = 0;
+		for (let i = 0; i < str.length; i++) {
+			hash = (hash + str.charCodeAt(i))%1000000000;
+		}
+		return hash;
+	}
+
+	private seededRandom = function (s: number) {
+		return function () {
+			s = Math.sin(s) * 10000; return s - Math.floor(s);
+		};
+	};
+
+	private static portugese = ['merda', 'mais', 'engraçada', 'que', 'eu', 'já', 'vi', 'batata', 'vagabunda', 'compreensível', 'tenha', 'um', 'bom', 'dia', 'palavras', 'muitas', 'quatro', 'maçã'];
+
+	public batata(interaction: Discord.CommandInteraction): void {
+		const text = interaction.options.getString('text');
+
+		const arr = text.split(' ');
+
+		const rand = this.seededRandom(damnboiCog.shittyStringHash(text));
+
+		const newText: string[] = [];
+		for (let i = 0; i < arr.length; i++) {
+			newText.push(damnboiCog.portugese[Math.floor(rand() * damnboiCog.portugese.length)]);
+		}
+
+		void interaction.reply(`Original Text: ${text}\nTranslation:    ${newText.join(' ')}`);
 	}
 
 	public memeMe(text: string): string {

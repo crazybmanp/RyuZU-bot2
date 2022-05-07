@@ -81,6 +81,11 @@ export class databaseCog extends Cog implements IFunctionProvider, ICommandProvi
 			process.exit(1);
 		}
 
+		if (!this.datasource.isInitialized) {
+			this.bot.logger.error(`Database is not initialized, bot cannot start.`);
+			process.exit(1);
+		}
+
 		for (const [,guild] of await this.bot.client.guilds.fetch()) {
 			await this.addGuild(guild);
 		}
