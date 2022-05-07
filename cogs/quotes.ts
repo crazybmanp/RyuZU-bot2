@@ -211,7 +211,7 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 
 			const quotes = await this.getAllQuotes(interaction.guild, category);
 
-			const quoteText: string[] = quotes.map((x) => this.constructQuote(x));
+			const quoteText: string[] = quotes.map((x) => `${this.constructQuote(x)}\n`);
 
 			if (quoteText.length < 1) {
 				void interaction.reply({ ephemeral: true, content: 'found no quotes...' });

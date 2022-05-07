@@ -18,7 +18,7 @@ export class utilCog extends Cog {
 				messageList.push(curMessage);
 				curMessage = '';
 			}
-			curMessage += items[i] + '\n';
+			curMessage += items[i];
 		}
 		messageList.push(curMessage);
 

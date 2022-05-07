@@ -1,94 +1,100 @@
-const { MessageEmbed } = require("discord.js");
+import { SlashCommandSubcommandBuilder } from '@discordjs/builders';
+import Discord, { TextChannel } from 'discord.js';
+import { Bot } from '../lib/Bot';
+import { Cog } from '../lib/Cog';
+import { SubcommandHandler } from '../lib/Subcommand';
+import { utilCog } from '../util';
 
-var bot = {};
-var subcommands = {};
+type rollResults = { total: number, rolls: number[] };
 
-var RollGenericDice = function (numberOfDice, numberOfSides) {
-    var results = {
-        total: 0,
-        rolls: []
-    }
-    for (var i = 0; i < numberOfDice; i++) {
-        var roll = Math.floor(Math.random() * numberOfSides) + 1;
-        results.rolls.push(roll);
-        results.total += roll;
-    }
-    return results;
+class rollandflips extends Cog {
+	requires: string[] = [];
+	cogName: string = 'rollandflips';
+
+	setup(): void {
+		const quoteSubcommand = new SubcommandHandler('roll', 'Roll dice, flip coins, and other random things.');
+
+		quoteSubcommand.addSubcommand({
+			command: 'roll',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('roll')
+				.setDescription('Roll dice.')
+				.addStringOption(option => option
+					.setName('dice')
+					.setDescription('The dice to roll.')
+					.setRequired(true)),
+			function: this.RollDice.bind(this),
+		});
+
+		quoteSubcommand.addSubcommand({
+			command: 'coinflip',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('coinflip')
+				.setDescription('Flips a coin.'),
+			function: this.CoinFlip.bind(this),
+		});
+
+		this.bot.registerCommand({
+			command: 'roll',
+			commandBuilder: quoteSubcommand.getSlashCommandBuilder(),
+			function: quoteSubcommand.resolveSubcommand.bind(quoteSubcommand),
+		})
+	}
+
+	public RollGenericDice(numberOfDice: number, numberOfSides: number): rollResults {
+		const results: rollResults = {
+			total: 0,
+			rolls: []
+		}
+		for (let i = 0; i < numberOfDice; i++) {
+			const roll = Math.floor(Math.random() * numberOfSides) + 1;
+			results.rolls.push(roll);
+			results.total += roll;
+		}
+		return results;
+	}
+
+	private async RollDice(interaction: Discord.CommandInteraction): Promise<void> {
+		// regex to split a string into an array of blank dice number or number dice number
+		const regex = /(\d+)?d(\d+)/g;
+		const dice = interaction.options.getString('dice').match(regex);
+		if (dice == null) {
+			void interaction.reply('Invalid dice.');
+			return;
+		}
+		await interaction.deferReply();
+
+		const rollResults = [];
+		let total = 0;
+		for (let i = 0; i < dice.length; i++) {
+			const die = dice[i].split('d');
+			const numDice = die[0] == '' ? 1 : parseInt(die[0]);
+			const numSides = parseInt(die[1]);
+			rollResults.push(this.RollGenericDice(numDice, numSides));
+		}
+		const resultMessages = [];
+		for (let i = 0; i < rollResults.length; i++) {
+			const result = rollResults[i];
+			total += result.total;
+			resultMessages.push('Rolled ');
+			for (let j = 0; j < result.rolls.length; j++) {
+				resultMessages.push(`${result.rolls[j]}, `);
+			}
+			resultMessages.push(` for a total of ${result.total}\n`);
+		}
+		await interaction.editReply('Here is that roll:');
+		await this.bot.getCog<utilCog>('util').printLong((interaction.channel as TextChannel), resultMessages);
+		await interaction.channel.send(`Grand Total: ${total}`);
+	}
+
+	private CoinFlip(interaction: Discord.CommandInteraction): void {
+		const coin = Math.floor(Math.random() * 2);
+		if (coin == 0) {
+			void interaction.reply('Heads');
+		} else {
+			void interaction.reply('Tails');
+		}
+	}
 }
 
-var RollDice = function (msg) {
-    // regex to split a string into an array of blank dice number or number dice number
-    var regex = /(\d+)?d(\d+)/g;
-    var dice = msg.content.match(regex);
-    if (dice == null) {
-        return;
-    }
-    var rollResults = [];
-    var total = 0;
-    for (var i = 0; i < dice.length; i++) {
-        var die = dice[i].split('d');
-        var numDice = die[0] == '' ? 1 : parseInt(die[0]);
-        var numSides = parseInt(die[1]);
-        rollResults.push(RollGenericDice(numDice, numSides));
-    }
-    var resultMessages = [];
-    for (var i = 0; i < rollResults.length; i++) {
-        var result = rollResults[i];
-        total += result.total;
-        resultMessages.push("Rolled ");
-        for (var j = 0; j < result.rolls.length; j++) {
-            resultMessages.push(result.rolls[j] + ", ");
-        }
-        resultMessages.push(" for a total of " + result.total + "\n");
-    }
-    bot.printLong(msg.channel, resultMessages);
-    msg.channel.send("Grand Total: " + total);
-}
-subcommands["roll"] = {function: RollDice, description: "Rolls a generic set of dice, outputs results of individual rolls and total. Format: roll 5d6 10d500 30d70"};
-
-var CoinFlip = function (msg) {
-    var coin = Math.floor(Math.random() * 2);
-    if (coin == 0) {
-        msg.channel.send("Heads");
-    } else {
-        msg.channel.send("Tails");
-    }
-}
-subcommands["coinflip"] = {function: CoinFlip, description: "Flips a coin."};
-
-var subCommands = function (msg) {
-    var embed = new MessageEmbed()
-    .setTitle("Roll")
-    .setDescription("Rolls a generic dice.")
-    for(var command in subcommands){
-        embed.addField(command, subcommands[command].description);
-    }
-}
-
-var rollHandler = function (msg) {
-    var command = msg.content.split(" ")[0];
-    msg.content = msg.content.substr(command.length + 1, msg.content.length);
-    if (command === "") {
-        command = "roll"; //this is the default command to be used if no command is specified
-    };
-    var fn = subcommands[command].function;
-    if (typeof fn === 'function') {
-        fn(msg);
-    } else {
-        msg.reply("Cannot find subcommand... [" + command + "]");
-    }
-}
-
-var ready = async function () {
-}
-
-var setup = function (b) {
-    bot = b;
-    bot.random = {RollGenericDice};
-    bot.registerCommand("rollsandflips", rollHandler);
-    bot.registerCommand("roll", RollDice);
-    bot.registerCommand("coinflip", CoinFlip);
-}
-
-exports.ready = ready;
-exports.setup = setup;
+export default (bot: Bot): rollandflips => { return new rollandflips(bot); }
