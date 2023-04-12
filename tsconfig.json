@@ -12,5 +12,6 @@
 		"noImplicitAny": true,
 		"noImplicitThis": true,
 		"strictBindCallApply": true,
+		"skipLibCheck": true
 	}
 }
