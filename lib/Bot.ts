@@ -124,7 +124,7 @@ export class Bot {
 			}
 		} catch (error) {
 			this.logger.error(`Error while registering interactions to the discord REST api`, error);
-			process.exit();
+			process.exit(1);
 		}
 	}
 
@@ -190,7 +190,7 @@ export class Bot {
 			this.loadedCogs[e.cogName] = e;
 		} catch (err: unknown) {
 			this.logger.error('Failed to load ' + cogname, { err: err });
-			process.exit();
+			process.exit(1);
 		}
 	}
 

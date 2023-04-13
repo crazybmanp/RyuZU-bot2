@@ -12,7 +12,11 @@
 		"dev": "nodemon -L -x \"yarn build && node app.js run || exit 1\" | bunyan",
 		"dev-start": "yarn build && node app.js run | bunyan",
 		"dev-dry": "node app.js run | bunyan",
-		"build": "concurrently 'eslint . --cache' 'tsc'"
+		"build": "concurrently 'eslint . --cache' 'tsc'",
+		"clean": "if [ -d \"node_modules\" ]; then yarn tsc --build --clean && rm -rf node_modules ; fi",
+		"docker": "docker build -t ryuzu-bot .",
+		"startprod": "node app.js run",
+		"migrate": "node app.js syncDatabase | bunyan"
 	},
 	"author": "Crazybmanp",
 	"license": "MIT",
