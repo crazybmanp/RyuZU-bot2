@@ -2,7 +2,7 @@ import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, Primary
 import { Guild } from './Guild';
 import { User } from './User';
 
-@Entity({ name: 'Quote', synchronize: true })
+@Entity({ name: 'Quote' })
 @Index(['guildId', 'quoteNumber'], { unique: true })
 export class Quote {
 	@PrimaryGeneratedColumn()
@@ -15,7 +15,7 @@ export class Quote {
 	text: string;
 
 	@Column({ type: 'text', nullable: true })
-	category: string;
+	category?: string;
 
 	@CreateDateColumn()
 	createDate: Date;

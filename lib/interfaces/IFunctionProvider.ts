@@ -1,4 +1,4 @@
-import { Cog } from './Cog';
+import { Cog } from '../Cog';
 
 export interface IFunctionProvider extends Cog {
 	registerCog(target: Cog): void;

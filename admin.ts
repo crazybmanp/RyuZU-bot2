@@ -1,24 +1,49 @@
-import Discord from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
+import Discord, { GuildChannel } from 'discord.js';
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
+import { utilCog } from './util';
 
 export class adminCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'admin';
 
 	setup(): void {
-		this.bot.registerCommand('say', this.say.bind(this));
+		this.bot.registerCommand({
+			command: 'say',
+			commandBuilder: new SlashCommandBuilder()
+				.setName('say')
+				.setDescription('Sends a message in the channel')
+				.addStringOption(option => option.setName('message')
+					.setRequired(true)
+					.setDescription('The message to send')
+				)
+				.addChannelOption(option => option.setName('channel')
+					.setRequired(false)
+					.setDescription('The channel to send the message in')
+					.addChannelType(0)
+				)
+			,
+			function: this.say.bind(this)
+		})
+
+		this.bot.registerCommand({
+			command: 'issue',
+			commandBuilder: new SlashCommandBuilder()
+				.setName('issue')
+				.setDescription('Sends a link to the issues page'),
+			function: this.issue.bind(this)
+		});
 		// bot.registerCommand('clean', clean);
-		// bot.registerCommand('clear', clean);
 		// bot.registerCommand('purge', purge);
-		this.bot.registerCommand('issue', this.issue.bind(this));
-		this.bot.registerCommand('issues', this.issue.bind(this));
 	}
 
-	private isOwner (author: Discord.User): boolean {
+	private isOwner(author: Discord.User): boolean {
 		const fullname: string = author.username + '#' + author.discriminator;
-		for (let i = 0; i < this.bot.config.owners.length; i++) {
-			const owner: string = this.bot.config.owners[i];
+
+		const owners = this.bot.config.owners;
+		for (let i = 0; i < owners.length; i++) {
+			const owner: string = owners[i];
 			if (owner === fullname) {
 				return true;
 			}
@@ -34,7 +59,7 @@ export class adminCog extends Cog {
 		return this.hasPermOnServer('MANAGE_MESSAGES', author);
 	}
 
-	public isModOnChannel(channel: Discord.GuildChannel, author: Discord.User): boolean {
+	public isModOnChannel(channel: Discord.GuildChannel | Discord.TextChannel | Discord.NewsChannel | Discord.ThreadChannel, author: Discord.User): boolean {
 		return this.hasPermOnChannel('MANAGE_MESSAGES', channel, author);
 	}
 
@@ -42,18 +67,53 @@ export class adminCog extends Cog {
 		return author.permissions.has('MANAGE_MESSAGES');
 	}
 
-	public hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel, author: Discord.User): boolean {
+	public hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel | Discord.TextChannel | Discord.NewsChannel | Discord.ThreadChannel, author: Discord.User): boolean {
 		const perms = channel.permissionsFor(author);
-		return perms.has('MANAGE_MESSAGES');
+		return perms?.has('MANAGE_MESSAGES') ?? false;
 	}
 
-	async say(msg: Discord.Message): Promise<void> {
-		await msg.delete();
-		msg.channel.send(msg.content)
-			.catch( (err: unknown) => {
+	async say(interaction: Discord.CommandInteraction): Promise<void> {
+		if (!interaction.channel || !this.isModOnChannel(((await interaction.channel.fetch()) as GuildChannel), interaction.user)) {
+			void interaction.reply('You do not have permission to use this command');
+			return; //The check here should be cleaned up.
+		}
+
+		this.bot.getCog<utilCog>('util').voidReply(interaction);
+
+		const ch = interaction.options.getChannel('channel');
+
+		let channel = interaction.channel
+		if (ch) {
+			const newch = interaction.guild?.channels?.resolve(ch.id);
+			if (newch) {
+				if (!newch.isText()) {
+					void interaction.reply('That channel is not a text channel.');
+					return;
+				} else if (!this.isModOnChannel(newch, interaction.user)) {
+					void interaction.reply('You do not have permission to use this command');
+					return;
+				}
+				channel = newch;
+			} else {
+				this.bot.logger.error('Channel specified is not in a guilad', { cog: 'admin', command: 'say' });
+			}
+		}
+
+		const msg = interaction.options.getString('message');
+		if (!msg) {
+			void interaction.reply('You must specify a message to send.');
+			return;
+		}
+
+		channel.send(msg)
+			.catch((err: unknown) => {
 				this.bot.logger.error('Error sending a message', { err });
-				msg.channel.send('I can\'t say that for some reason')
-					.catch( (err2: unknown) => {
+				if (!interaction.channel) {
+					this.bot.logger.error('No interaction channel', { cog: 'admin', command: 'say' });
+					return;
+				}
+				interaction.channel.send('I can\'t say that for some reason')
+					.catch((err2: unknown) => {
 						this.bot.logger.error('Error sending message saying we had an error sending a message', { err2 });
 					});
 			});
@@ -93,9 +153,9 @@ export class adminCog extends Cog {
 	// 	}
 	// };
 
-	issue(msg: Discord.Message): void {
-		void msg.reply('Here is a link to my issues page on my github, please report any issues here: ' + this.bot.config.issuesPage);
+	issue(interaction: Discord.CommandInteraction): void {
+		void interaction.reply('Here is a link to my issues page on my github, please report any issues here: ' + this.bot.config.issuesPage);
 	}
 }
 
-export default (bot: Bot): adminCog => {return new adminCog(bot);}
+export default (bot: Bot): adminCog => { return new adminCog(bot); }

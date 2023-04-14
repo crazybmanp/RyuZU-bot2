@@ -10,6 +10,9 @@
 		"sourceMap": true,
 		"incremental": true,
 		"noImplicitAny": true,
-		"noImplicitThis": true
+		"noImplicitThis": true,
+		"strictBindCallApply": true,
+		"skipLibCheck": true,
+		"strictNullChecks": true
 	}
 }

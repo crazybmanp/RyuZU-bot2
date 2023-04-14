@@ -23,7 +23,9 @@ export abstract class Cog {
 	newGuild(guild: Discord.Guild):Promise<void>|void {
 		return;
 	}
-	shutdown():Promise<void>|void {
-		this.bot = null;
+	shutdown(): Promise<void> | void {
+		// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+		// @ts-ignore
+		this.bot = null; // Yes, we need ot get rid of the cog's ability to access the bot when they shut down.
 	}
 }

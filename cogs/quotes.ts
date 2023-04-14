@@ -1,34 +1,26 @@
-import Discord, { GuildChannel, TextChannel } from 'discord.js';
+import { SlashCommandSubcommandBuilder } from '@discordjs/builders';
+import Discord, { TextChannel } from 'discord.js';
 import { EntityManager } from 'typeorm';
 import { adminCog } from '../admin';
 import { databaseCog } from '../database';
-import { Bot, CommandFunction } from '../lib/Bot';
+import { Bot } from '../lib/Bot';
 import { Cog } from '../lib/Cog';
-import { IDatabaseConsumer } from '../lib/IDatabaseConsumer';
+import { IDatabaseConsumer } from '../lib/interfaces/IDatabaseConsumer';
+import { SubcommandHandler } from '../lib/Subcommand';
 import { Quote } from '../model/Quote';
 import { QuoteNumber } from '../model/QuoteNumber';
 import { utilCog } from '../util';
+import { error } from 'console';
 
 export class quoteCog extends Cog implements IDatabaseConsumer {
 	requires: string[] = ['./database.js', './util.js'];
 	cogName: string = 'quotes';
 
-	private subcommands: { [key: string]: CommandFunction } = {};
 	private manager: EntityManager;
 	private databaseCog: databaseCog;
 
 	constructor(bot: Bot) {
 		super(bot);
-
-		this.subcommands = {
-			'random': (this.commandRandomQuote.bind(this) as CommandFunction),
-			'list': (this.listQuote.bind(this) as CommandFunction),
-			'get': (this.getQuote.bind(this) as CommandFunction),
-			'give': (this.getQuote.bind(this) as CommandFunction),
-			'delete': (this.commandDeleteQuote.bind(this) as CommandFunction),
-			'remove': (this.commandDeleteQuote.bind(this) as CommandFunction),
-			'add': (this.addQuote.bind(this) as CommandFunction)
-		};
 	}
 
 	getModels(): unknown[] {
@@ -40,20 +32,98 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		this.databaseCog = database;
 	}
 	shutdownManager(): void {
+		// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+		//@ts-ignore
 		this.manager = undefined;
 	}
 
-	setup():void {
-		this.bot.registerCommand('quote', this.quoteHandler.bind(this));
+	setup(): void {
+		const quoteSubcommand = new SubcommandHandler('quote', 'Make and see quotes for the server.');
+
+		quoteSubcommand.addSubcommand({
+			command: 'random',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('random')
+				.setDescription('Get a random quote.')
+				.addStringOption(option => option
+					.setName('category')
+					.setDescription('The category of the quote.')
+					.setRequired(false)),
+			function: this.commandRandomQuote.bind(this)
+		});
+
+		quoteSubcommand.addSubcommand({
+			command: 'list',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('list')
+				.setDescription('List the quotes')
+				.addStringOption(option => option
+					.setName('category')
+					.setDescription('The category of the quote.')
+					.setRequired(false)),
+			function: this.listQuote.bind(this)
+		});
+
+		quoteSubcommand.addSubcommand({
+			command: 'get',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('get')
+				.setDescription('Get a quote by ID.')
+				.addNumberOption(option => option
+					.setName('number')
+					.setDescription('The quote number to get.')
+					.setRequired(true)),
+			function: this.getQuote.bind(this)
+		});
+
+		quoteSubcommand.addSubcommand({
+			command: 'delete',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('delete')
+				.setDescription('Remove a quote, only available to moderators.')
+				.addNumberOption(option => option
+					.setName('number')
+					.setDescription('The quote number to get.')
+					.setRequired(true)),
+			function: this.commandDeleteQuote.bind(this)
+		});
+
+		quoteSubcommand.addSubcommand({
+			command: 'add',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('add')
+				.setDescription('Add a quote')
+				.addStringOption(option => option
+					.setName('quote')
+					.setDescription('The quote to add.')
+					.setRequired(true))
+				.addStringOption(option => option
+					.setName('category')
+					.setDescription('The category of the quote.')
+					.setRequired(false)),
+			function: this.addQuote.bind(this)
+		});
+
+
+		this.bot.registerCommand({
+			command: 'quote',
+			commandBuilder: quoteSubcommand.getSlashCommandBuilder(),
+			function: quoteSubcommand.resolveSubcommand.bind(quoteSubcommand),
+		})
+
 		this.bot.getCog<databaseCog>('database').registerCog(this);
 	}
 
-	public async GiveQuote(guild: Discord.Guild, num: number = undefined): Promise<Quote> {
-		let ret: Quote;
+	public async GiveQuote(guild: Discord.Guild, num: number|undefined = undefined): Promise<Quote> {
+		let ret: Quote | null;
 		if (num) {
-			ret = await this.getQuoteById(num);
+			ret = await this.getQuoteById(guild, num);
 		} else {
 			ret = await this.randomQuote(guild);
+		}
+
+		if (!ret) {
+			throw new Error('No quote found.');
 		}
 
 		return (JSON.parse(JSON.stringify(ret)) as Quote);
@@ -65,22 +135,27 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 			.where('quote.guild = :guild', { guild: guild.id })
 			.distinct()
 			.getMany();
-		return results.map((x) => x.category);
+		return results.map((x) => {
+			if (!x.category) {
+				throw error('Category is null');
+			}
+			return x.category
+		});
 	}
 
 	private async isCategory(guild: Discord.Guild, category: string): Promise<boolean> {
 		return (await this.getCategories(guild)).includes(category);
 	}
 
-	private constructQuote(quote:Quote): string {
-		return `${quote.quoteNumber} (${quote.category}): ${quote.text}`;
+	private constructQuote(quote: Quote): string {
+		return `${quote.quoteNumber} ${quote.category?`(${quote.category})`:``}: ${quote.text}`;
 	}
 
-	private printQuote(msg: Discord.Message, quote: Quote): void {
-		void msg.channel.send(this.constructQuote(quote));
+	private printQuote(msg: Discord.CommandInteraction, quote: Quote): void {
+		void msg.reply(this.constructQuote(quote));
 	}
 
-	private async randomQuote(guild: Discord.Guild, category:string = undefined): Promise<Quote>{
+	private async randomQuote(guild: Discord.Guild, category: string|undefined = undefined): Promise<Quote | null> {
 		const quote = this.manager.createQueryBuilder(Quote, 'quote')
 			.where('quote.guild = :guild', { guild: guild.id })
 			.orderBy('RANDOM()')
@@ -90,15 +165,15 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		return quote.getOne();
 	}
 
-	private async getQuoteById(id: number):Promise<Quote|null> {
-		return this.manager.findOneBy(Quote, { id: id });
+	private async getQuoteById(guild: Discord.Guild, id: number): Promise<Quote | null> {
+		return this.manager.findOneBy(Quote, { quoteNumber: id, guildId: guild.id });
 	}
 
-	private async getQuoteByNumber(guild: Discord.Guild, quoteNumber: number): Promise<Quote|null> {
-		return this.manager.findOne(Quote, {where:{ guildId: guild.id, quoteNumber: quoteNumber }});
+	private async getQuoteByNumber(guild: Discord.Guild, quoteNumber: number): Promise<Quote | null> {
+		return this.manager.findOne(Quote, { where: { guildId: guild.id, quoteNumber: quoteNumber } });
 	}
 
-	private async getAllQuotes(guild: Discord.Guild, category:string = undefined): Promise<(Quote|null)[]> {
+	private async getAllQuotes(guild: Discord.Guild, category: string|undefined = undefined): Promise<(Quote[] | null)> {
 		if (category) {
 			return this.manager.find(Quote, { where: { guildId: guild.id, category: category } });
 		} else {
@@ -114,74 +189,113 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		await this.manager.remove(quote);
 	}
 
-	private async commandRandomQuote(msg: Discord.Message): Promise<void> {
-		let cat = '';
-		if (msg.content.length > 0) {
-			cat = msg.content.split(' ')[0];
-			if (!await this.isCategory(msg.guild, cat)) {
-				void msg.reply('Not a valid category.');
+	private async commandRandomQuote(interaction: Discord.CommandInteraction): Promise<void> {
+		let category = interaction.options.getString('category');
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
+		}
+
+		if (category) {
+			if (!await this.isCategory(guild, category)) {
+				void interaction.reply({ ephemeral: true, content: 'Not a valid category.' });
 				return;
 			}
+		} else {
+			category = '';
 		}
-		const quote = await this.randomQuote(msg.guild, cat);
+
+		const quote = await this.randomQuote(interaction.guild, category);
 		if (!quote) {
-			await msg.reply('This server has no quotes.');
+			await interaction.reply({ ephemeral: true, content: 'This server has no quotes.' });
 			return;
 		}
-		this.printQuote(msg, quote);
+		this.printQuote(interaction, quote);
 	}
 
-	private async listQuote(msg: Discord.Message): Promise<void> {
-		let category: string = '';
-		if (msg.content.length > 0) {
-			category = msg.content.split(' ')[0];
-			if (!await this.isCategory(msg.guild, category)) {
-				void msg.reply('Not a valid category.');
+	private async listQuote(interaction: Discord.CommandInteraction): Promise<void> {
+		await interaction.deferReply();
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
+		}
+
+		try {
+			let category = interaction.options.getString('category');
+			if (category) {
+				if (!await this.isCategory(guild, category)) {
+					void interaction.reply({ ephemeral: true, content: 'Not a valid category.' });
+					return;
+				}
+			} else {
+				category = '';
+			}
+
+			const quotes = await this.getAllQuotes(interaction.guild, category);
+			if (!quotes) {
+				void interaction.reply({ ephemeral: true, content: 'This server has no quotes.' });
 				return;
 			}
+
+			const quoteText: string[] = quotes.map((x) => this.constructQuote(x));
+
+			if (quoteText.length < 1) {
+				void interaction.reply({ ephemeral: true, content: 'found no quotes...' });
+				return;
+			}
+
+			void this.bot.getCog<utilCog>('util').printLong((interaction.channel as TextChannel), quoteText);
+			void interaction.editReply(category ? `Here are all of the quotes in ${category}`: 'Here are all of the quotes');
+		} catch (error) {
+			this.bot.logger.error(error);
+			void interaction.editReply('Something went wrong.');
 		}
-
-		const quotes = await this.getAllQuotes(msg.guild, category);
-
-		const quoteText: string[] = quotes.map((x) => this.constructQuote(x));
-
-		if (quoteText.length < 1) {
-			void msg.reply('found no quotes...');
-			return;
-		}
-
-		void this.bot.getCog<utilCog>('util').printLong((msg.channel as TextChannel), quoteText);
 	}
 
-	private async getQuote(msg: Discord.Message): Promise<void> {
-		const num: number = parseInt(msg.content);
-		if (isNaN(num)) {
-			void msg.reply('You need to give a quote number in order to get a quote');
+	private async getQuote(interaction: Discord.CommandInteraction): Promise<void> {
+		const num = interaction.options.getNumber('number');
+		if (!num) {
+			void interaction.reply({ ephemeral: true, content: 'You need to specify a quote number.' });
 			return;
 		}
-		const quote = await this.getQuoteByNumber(msg.guild, num);
 
-		if(!quote) {
-			void msg.reply('Quote not found.');
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
 			return;
 		}
-		this.printQuote(msg, quote);
+
+		const quote = await this.getQuoteByNumber(guild, num);
+
+		if (!quote) {
+			void interaction.reply({ ephemeral: true, content: 'Quote not found.' });
+			return;
+		}
+		this.printQuote(interaction, quote);
 	}
 
-	private async commandDeleteQuote(msg: Discord.Message): Promise<void> {
-		if (!this.bot.getCog<adminCog>('admin').isModOnChannel((msg.channel as GuildChannel), msg.author)) {
-			void msg.reply('You are not allowed to do that');
+	private async commandDeleteQuote(interaction: Discord.CommandInteraction): Promise<void> {
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
 		}
-		const num: number = parseInt(msg.content);
-		if (isNaN(num)) {
-			void msg.reply('You need to give a quote number in order to get a quote');
+		const GM = guild.members.resolve(interaction.user.id);
+		if (!GM || !this.bot.getCog<adminCog>('admin').isModOnServer(GM)) {
+			void interaction.reply({ ephemeral: true, content: 'You are not allowed to do that' });
+		}
+		const num = interaction.options.getNumber('number');
+		if (!num) {
+			void interaction.reply({ ephemeral: true, content: 'You need to give a quote number in order to get a quote' });
 			return;
 		}
 
-		const quote = await this.getQuoteByNumber(msg.guild, num);
+		const quote = await this.getQuoteByNumber(interaction.guild, num);
 
-		if (typeof quote === 'undefined') {
-			void msg.reply('Quote not found.');
+		if (!quote) {
+			void interaction.reply({ephemeral: true, content: 'Quote not found.'});
 			return;
 		}
 
@@ -189,54 +303,38 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 
 		await this.deleteQuote(quote);
 
-		await msg.reply('Quote removed: ');
-		this.printQuote(msg, copy);
+		await interaction.reply(`Quote removed: ${this.constructQuote(copy)}`);
 	}
 
-	private async addQuote(msg: Discord.Message): Promise<void> {
-		const splt = msg.content.split('"');
-		const supersplit: string[][] = [];
-		splt.forEach(function (element) {
-			supersplit.push(element.split(' '));
-		}, this);
-		supersplit.forEach(function (element: string[], i: number, arr: string[][]) {
-			arr[i] = element.filter(Boolean);
-		}, this);
-
-		if (supersplit.length < 2) {
-			void msg.reply('Usage: specify the quote in quotations, with one word before or after to specify its category');
+	private async addQuote(interaction: Discord.CommandInteraction): Promise<void> {
+		const quoteText = interaction.options.getString('quote');
+		if (!quoteText) {
+			void interaction.reply({ ephemeral: true, content: 'You need to give a quote in order to add a quote' });
 			return;
 		}
-		if (supersplit[0].length + supersplit[2].length > 1) {
-			void msg.reply('Usage: specify the quote in quotations, with one word before or after to specify its category');
+		const category = interaction.options.getString('category');
+
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
 			return;
 		}
-
-		let category = '';
-		if (supersplit[0].length === 1) {
-			category = supersplit[0][0];
-		} else {
-			category = supersplit[2][0];
-		}
-
-		const quoteText = supersplit[1].join(' ');
 
 		let quote;
-
 		await this.manager.transaction(async (tm) => {
-			let nextNumber = await tm.findOneBy(QuoteNumber, { guildId: msg.guild.id });
+			let nextNumber = await tm.findOneBy(QuoteNumber, { guildId: guild.id });
 			if (!nextNumber) {
 				nextNumber = new QuoteNumber();
-				nextNumber.guildId = msg.guild.id;
+				nextNumber.guildId = guild.id;
 				nextNumber.nextQuoteNumber = 1;
 			}
 
 			quote = new Quote();
 			quote.quoteNumber = nextNumber.nextQuoteNumber;
-			quote.guildId = msg.guild.id;
+			quote.guildId = guild.id;
 			quote.text = quoteText;
-			quote.category = category;
-			quote.creator = await this.databaseCog.findOrGetUser(msg.author.id, msg.guild.id);
+			quote.category = category ?? undefined;
+			quote.creator = await this.databaseCog.findOrGetUser(interaction.user.id, guild.id);
 
 			await tm.save(quote);
 
@@ -244,23 +342,12 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 			await tm.save(nextNumber);
 		})
 
-		await msg.reply('Quote added:');
-		this.printQuote(msg, quote);
-	}
-
-	private async quoteHandler(msg: Discord.Message): Promise<void> {
-		let command = msg.content.split(' ')[0];
-		msg.content = msg.content.substr(command.length + 1, msg.content.length);
-		if (command === '') {
-			command = 'random';
+		if (!quote) {
+			void interaction.reply({ ephemeral: true, content: 'Something went wrong. It is possible that your quote was added successfully.' });
+			return;
 		}
-		const fn: CommandFunction = this.subcommands[command];
-		if (typeof fn === 'function') {
-			await fn(msg);
-		} else {
-			void msg.reply('Cannot find subcommand... [' + command + ']');
-		}
+		await interaction.reply(`Quote added: ${this.constructQuote(quote)}`);
 	}
 }
 
-export default (bot: Bot): quoteCog => {return new quoteCog(bot);}
+export default (bot: Bot): quoteCog => { return new quoteCog(bot); }

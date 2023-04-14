@@ -1,9 +1,11 @@
+import { Command } from 'commander';
 import Discord from 'discord.js';
 import { DataSource, EntityManager } from 'typeorm';
 import { Bot } from './lib/Bot';
 import { Cog } from './lib/Cog';
-import { IDatabaseConsumer } from './lib/IDatabaseConsumer';
-import { IFunctionProvider } from './lib/IFunctionProvider';
+import { ICommandProvider } from './lib/interfaces/ICommandProvider';
+import { IDatabaseConsumer } from './lib/interfaces/IDatabaseConsumer';
+import { IFunctionProvider } from './lib/interfaces/IFunctionProvider';
 import { Guild } from './model/Guild';
 import { GuildMember } from './model/GuildMember';
 import { User } from './model/User';
@@ -12,7 +14,7 @@ import { User } from './model/User';
 type Entities = any[];
 const baseModels: Entities = [Guild, User, GuildMember]
 
-export class databaseCog extends Cog implements IFunctionProvider{
+export class databaseCog extends Cog implements IFunctionProvider, ICommandProvider{
 	requires: string[] = [];
 	cogName: string = 'database';
 
@@ -26,6 +28,21 @@ export class databaseCog extends Cog implements IFunctionProvider{
 		this.models = [];
 	}
 
+	getCommands(): Command[] {
+		return [
+			new Command()
+				.name('syncDatabase')
+				.description('Sync the database with the current state of the bot.')
+				.action(async () => {
+					this.bot.logger.info('Syncing database...');
+
+					await this.datasource.synchronize();
+
+					this.bot.logger.info('Database synced! Ready to go!');
+				})
+			]
+	}
+
 	async postSetup(): Promise<void> {
 		this.models.push(...baseModels);
 		for (const consumer of this.registeredConsumers) {
@@ -33,12 +50,11 @@ export class databaseCog extends Cog implements IFunctionProvider{
 			this.models.push(...consumer.getModels());
 		}
 
-		this.bot.logger.debug(`Database cog loading ${this.models.length} models.`);
+		this.bot.logger.info(`Database cog loading ${this.models.length} models.`);
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const DSO: any = {};
 		Object.assign(DSO,
 			{
-				synchronize: true,
 				entities: this.models,
 				...this.bot.config.database
 			}
@@ -53,8 +69,22 @@ export class databaseCog extends Cog implements IFunctionProvider{
 			.catch((err) => {
 				this.bot.logger.error('Error during Data Source initialization', err)
 			})
-		await datasource.synchronize();
+
 		this.datasource = datasource;
+	}
+
+	async ready(): Promise<void> {
+		const schema = await this.datasource.driver.createSchemaBuilder().log();
+
+		if (schema.upQueries.length > 0) {
+			this.bot.logger.error('Database schema has changed. Please run `sync` to sync the database. It is recommended to backup the database before doing so.', {'upQueries': schema.upQueries});
+			process.exit(1);
+		}
+
+		if (!this.datasource.isInitialized) {
+			this.bot.logger.error(`Database is not initialized, bot cannot start.`);
+			process.exit(1);
+		}
 
 		for (const [,guild] of await this.bot.client.guilds.fetch()) {
 			await this.addGuild(guild);
@@ -88,7 +118,7 @@ export class databaseCog extends Cog implements IFunctionProvider{
 		await this.addGuild(guild);
 	}
 
-	async getGuild(guildId: string): Promise<Guild> {
+	async getGuild(guildId: string): Promise<Guild | null> {
 		return this.datasource.manager.findOneBy(Guild, { id: guildId });
 	}
 
@@ -108,27 +138,39 @@ export class databaseCog extends Cog implements IFunctionProvider{
 
 	async guildMembership(user: User, guildId: string): Promise<User|undefined> {
 		const guild = this.bot.client.guilds.resolve(guildId);
-		const member = guild.members.resolve(user.id);
+		if (!guild) {
+			this.bot.logger.warn(`Failed to find guild ${guildId} for user ${user.id}`);
+			return;
+		}
 
+		const member = guild.members.resolve(user.id);
 		if (!member) {
+			this.bot.logger.warn(`Failed to find member ${user.id} in guild ${guildId}`);
 			return;
 		}
 
 		const GM = new GuildMember();
 		GM.guildId = guildId;
 		GM.userId = user.id;
-		GM.nickname = member.nickname;
-		this.bot.logger.debug(GM);
+		GM.nickname = member.nickname ?? undefined;
 
 		await this.datasource.manager.save(GM)
 
-		return this.getUser(user.id);
+		const newuser = await this.getUser(user.id)
+		if (!newuser)
+		{
+			throw Error('Failed to find user we just added.');
+		}
+		return newuser;
 	}
 
 	async findOrGetUser(userId: string, guildId: string): Promise<User> {
 		let user = await this.getUser(userId);
 		if (!user) {
 			const guild = this.bot.client.guilds.resolve(guildId);
+			if (!guild) {
+				throw Error('Failed to find guild.');
+			}
 			const member = guild.members.resolve(userId);
 
 			if (!member) {
@@ -150,7 +192,7 @@ export class databaseCog extends Cog implements IFunctionProvider{
 		}
 	}
 
-	async getUser(id: string): Promise<User> {
+	async getUser(id: string): Promise<User|null> {
 		return this.datasource.manager.findOne(User, { where: { id: id }, relations: ['guildMember'] });
 	}
 

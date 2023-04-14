@@ -2,7 +2,7 @@ import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 't
 import { Guild } from './Guild';
 import { User } from './User';
 
-@Entity({ name: 'GuildMember', synchronize: true })
+@Entity({ name: 'GuildMember' })
 export class GuildMember {
 	@PrimaryGeneratedColumn()
 	id: number;
