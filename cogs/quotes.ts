@@ -10,6 +10,7 @@ import { SubcommandHandler } from '../lib/Subcommand';
 import { Quote } from '../model/Quote';
 import { QuoteNumber } from '../model/QuoteNumber';
 import { utilCog } from '../util';
+import { error } from 'console';
 
 export class quoteCog extends Cog implements IDatabaseConsumer {
 	requires: string[] = ['./database.js', './util.js'];
@@ -31,6 +32,8 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		this.databaseCog = database;
 	}
 	shutdownManager(): void {
+		// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+		//@ts-ignore
 		this.manager = undefined;
 	}
 
@@ -111,12 +114,16 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		this.bot.getCog<databaseCog>('database').registerCog(this);
 	}
 
-	public async GiveQuote(guild: Discord.Guild, num: number = undefined): Promise<Quote> {
-		let ret: Quote;
+	public async GiveQuote(guild: Discord.Guild, num: number|undefined = undefined): Promise<Quote> {
+		let ret: Quote | null;
 		if (num) {
 			ret = await this.getQuoteById(guild, num);
 		} else {
 			ret = await this.randomQuote(guild);
+		}
+
+		if (!ret) {
+			throw new Error('No quote found.');
 		}
 
 		return (JSON.parse(JSON.stringify(ret)) as Quote);
@@ -128,7 +135,12 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 			.where('quote.guild = :guild', { guild: guild.id })
 			.distinct()
 			.getMany();
-		return results.map((x) => x.category);
+		return results.map((x) => {
+			if (!x.category) {
+				throw error('Category is null');
+			}
+			return x.category
+		});
 	}
 
 	private async isCategory(guild: Discord.Guild, category: string): Promise<boolean> {
@@ -136,14 +148,14 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 	}
 
 	private constructQuote(quote: Quote): string {
-		return `${quote.quoteNumber} (${quote.category}): ${quote.text}`;
+		return `${quote.quoteNumber} ${quote.category?`(${quote.category})`:``}: ${quote.text}`;
 	}
 
 	private printQuote(msg: Discord.CommandInteraction, quote: Quote): void {
 		void msg.reply(this.constructQuote(quote));
 	}
 
-	private async randomQuote(guild: Discord.Guild, category: string = undefined): Promise<Quote> {
+	private async randomQuote(guild: Discord.Guild, category: string|undefined = undefined): Promise<Quote | null> {
 		const quote = this.manager.createQueryBuilder(Quote, 'quote')
 			.where('quote.guild = :guild', { guild: guild.id })
 			.orderBy('RANDOM()')
@@ -161,7 +173,7 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		return this.manager.findOne(Quote, { where: { guildId: guild.id, quoteNumber: quoteNumber } });
 	}
 
-	private async getAllQuotes(guild: Discord.Guild, category: string = undefined): Promise<(Quote | null)[]> {
+	private async getAllQuotes(guild: Discord.Guild, category: string|undefined = undefined): Promise<(Quote[] | null)> {
 		if (category) {
 			return this.manager.find(Quote, { where: { guildId: guild.id, category: category } });
 		} else {
@@ -179,8 +191,14 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 
 	private async commandRandomQuote(interaction: Discord.CommandInteraction): Promise<void> {
 		let category = interaction.options.getString('category');
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
+		}
+
 		if (category) {
-			if (!await this.isCategory(interaction.guild, category)) {
+			if (!await this.isCategory(guild, category)) {
 				void interaction.reply({ ephemeral: true, content: 'Not a valid category.' });
 				return;
 			}
@@ -198,10 +216,16 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 
 	private async listQuote(interaction: Discord.CommandInteraction): Promise<void> {
 		await interaction.deferReply();
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
+		}
+
 		try {
 			let category = interaction.options.getString('category');
 			if (category) {
-				if (!await this.isCategory(interaction.guild, category)) {
+				if (!await this.isCategory(guild, category)) {
 					void interaction.reply({ ephemeral: true, content: 'Not a valid category.' });
 					return;
 				}
@@ -210,6 +234,10 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 			}
 
 			const quotes = await this.getAllQuotes(interaction.guild, category);
+			if (!quotes) {
+				void interaction.reply({ ephemeral: true, content: 'This server has no quotes.' });
+				return;
+			}
 
 			const quoteText: string[] = quotes.map((x) => this.constructQuote(x));
 
@@ -228,7 +256,18 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 
 	private async getQuote(interaction: Discord.CommandInteraction): Promise<void> {
 		const num = interaction.options.getNumber('number');
-		const quote = await this.getQuoteByNumber(interaction.guild, num);
+		if (!num) {
+			void interaction.reply({ ephemeral: true, content: 'You need to specify a quote number.' });
+			return;
+		}
+
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
+		}
+
+		const quote = await this.getQuoteByNumber(guild, num);
 
 		if (!quote) {
 			void interaction.reply({ ephemeral: true, content: 'Quote not found.' });
@@ -238,8 +277,13 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 	}
 
 	private async commandDeleteQuote(interaction: Discord.CommandInteraction): Promise<void> {
-		const GM = interaction.guild.members.resolve(interaction.user.id);
-		if (!this.bot.getCog<adminCog>('admin').isModOnServer(GM)) {
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
+		}
+		const GM = guild.members.resolve(interaction.user.id);
+		if (!GM || !this.bot.getCog<adminCog>('admin').isModOnServer(GM)) {
 			void interaction.reply({ ephemeral: true, content: 'You are not allowed to do that' });
 		}
 		const num = interaction.options.getNumber('number');
@@ -264,23 +308,33 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 
 	private async addQuote(interaction: Discord.CommandInteraction): Promise<void> {
 		const quoteText = interaction.options.getString('quote');
+		if (!quoteText) {
+			void interaction.reply({ ephemeral: true, content: 'You need to give a quote in order to add a quote' });
+			return;
+		}
 		const category = interaction.options.getString('category');
+
+		const guild = interaction.guild;
+		if (!guild) {
+			void interaction.reply({ ephemeral: true, content: 'You need to start this interaction from a guild.' });
+			return;
+		}
 
 		let quote;
 		await this.manager.transaction(async (tm) => {
-			let nextNumber = await tm.findOneBy(QuoteNumber, { guildId: interaction.guild.id });
+			let nextNumber = await tm.findOneBy(QuoteNumber, { guildId: guild.id });
 			if (!nextNumber) {
 				nextNumber = new QuoteNumber();
-				nextNumber.guildId = interaction.guild.id;
+				nextNumber.guildId = guild.id;
 				nextNumber.nextQuoteNumber = 1;
 			}
 
 			quote = new Quote();
 			quote.quoteNumber = nextNumber.nextQuoteNumber;
-			quote.guildId = interaction.guild.id;
+			quote.guildId = guild.id;
 			quote.text = quoteText;
-			quote.category = category;
-			quote.creator = await this.databaseCog.findOrGetUser(interaction.user.id, interaction.guild.id);
+			quote.category = category ?? undefined;
+			quote.creator = await this.databaseCog.findOrGetUser(interaction.user.id, guild.id);
 
 			await tm.save(quote);
 
@@ -288,6 +342,10 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 			await tm.save(nextNumber);
 		})
 
+		if (!quote) {
+			void interaction.reply({ ephemeral: true, content: 'Something went wrong. It is possible that your quote was added successfully.' });
+			return;
+		}
 		await interaction.reply(`Quote added: ${this.constructQuote(quote)}`);
 	}
 }

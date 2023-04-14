@@ -40,8 +40,10 @@ export class adminCog extends Cog {
 
 	private isOwner(author: Discord.User): boolean {
 		const fullname: string = author.username + '#' + author.discriminator;
-		for (let i = 0; i < this.bot.config.owners.length; i++) {
-			const owner: string = this.bot.config.owners[i];
+
+		const owners = this.bot.config.owners;
+		for (let i = 0; i < owners.length; i++) {
+			const owner: string = owners[i];
 			if (owner === fullname) {
 				return true;
 			}
@@ -67,13 +69,13 @@ export class adminCog extends Cog {
 
 	public hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel | Discord.TextChannel | Discord.NewsChannel | Discord.ThreadChannel, author: Discord.User): boolean {
 		const perms = channel.permissionsFor(author);
-		return perms.has('MANAGE_MESSAGES');
+		return perms?.has('MANAGE_MESSAGES') ?? false;
 	}
 
 	async say(interaction: Discord.CommandInteraction): Promise<void> {
-		if (!this.isModOnChannel(((await interaction.channel.fetch()) as GuildChannel), interaction.user)) {
+		if (!interaction.channel || !this.isModOnChannel(((await interaction.channel.fetch()) as GuildChannel), interaction.user)) {
 			void interaction.reply('You do not have permission to use this command');
-			return;
+			return; //The check here should be cleaned up.
 		}
 
 		this.bot.getCog<utilCog>('util').voidReply(interaction);
@@ -82,20 +84,34 @@ export class adminCog extends Cog {
 
 		let channel = interaction.channel
 		if (ch) {
-			const newch = interaction.guild.channels.resolve(ch.id);
-			if (!newch.isText()) {
-				void interaction.reply('That channel is not a text channel.');
-				return;
-			} else if (!this.isModOnChannel(newch, interaction.user)) {
-				void interaction.reply('You do not have permission to use this command');
-				return;
+			const newch = interaction.guild?.channels?.resolve(ch.id);
+			if (newch) {
+				if (!newch.isText()) {
+					void interaction.reply('That channel is not a text channel.');
+					return;
+				} else if (!this.isModOnChannel(newch, interaction.user)) {
+					void interaction.reply('You do not have permission to use this command');
+					return;
+				}
+				channel = newch;
+			} else {
+				this.bot.logger.error('Channel specified is not in a guilad', { cog: 'admin', command: 'say' });
 			}
-			channel = newch;
 		}
 
-		channel.send(interaction.options.getString('message'))
+		const msg = interaction.options.getString('message');
+		if (!msg) {
+			void interaction.reply('You must specify a message to send.');
+			return;
+		}
+
+		channel.send(msg)
 			.catch((err: unknown) => {
 				this.bot.logger.error('Error sending a message', { err });
+				if (!interaction.channel) {
+					this.bot.logger.error('No interaction channel', { cog: 'admin', command: 'say' });
+					return;
+				}
 				interaction.channel.send('I can\'t say that for some reason')
 					.catch((err2: unknown) => {
 						this.bot.logger.error('Error sending message saying we had an error sending a message', { err2 });

@@ -1,19 +1,17 @@
 import Discord, { Client, CommandInteraction, Guild, Interaction, PresenceData } from 'discord.js';
 import { REST } from '@discordjs/rest'
 import { Routes } from 'discord-api-types/v9';
-import fs from 'fs';
 import { Cog } from './Cog';
 import Logger from 'bunyan';
 import { loggerCog } from '../logger';
 import { ActivityTypes } from 'discord.js/typings/enums';
-import { Config } from '../model/Config';
 import { SlashCommandBuilder } from '@discordjs/builders';
-
+import { Config, getConfig } from './Config';
 export type CogFactory = (bot: Bot) => Cog;
 export type CommandFunction = (interaction: Interaction) => Promise<void> | void;
 export type CommandRegistration = {
 	command: string,
-	commandBuilder: Partial<SlashCommandBuilder>,
+	commandBuilder: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>,
 	function: CommandFunction,
 }
 
@@ -33,17 +31,17 @@ export class Bot {
 	readonly commandDevMode = (): boolean => !!this.commandGuildServer;
 	readonly commandGuildServer: string[]|undefined;
 
-	constructor(configFile: string) {
+	constructor() {
 		this.ready = false;
 		this.loadedCogs = {};
 		this.commands = [];
 
-		const contents = fs.readFileSync(configFile).toString();
-		this.config = (JSON.parse(contents) as Config); //TODO: Is there a way to make this type safe better?
+		this.config = getConfig();
 
-		this.devMode = this.config.devMode ?? false;
-		if (this.devMode && this.config.CommandServerRegistration) {
-			this.commandGuildServer = this.config.CommandServerRegistration.CommandServerList;
+		this.devMode = this.config.devMode;
+		const csr = this.config.CommandServerRegistration;
+		if (this.devMode && csr) {
+			this.commandGuildServer = csr.CommandServerList;
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-var-requires
@@ -115,9 +113,13 @@ export class Bot {
 
 		try {
 			if (this.commandDevMode()) {
-				this.logger.info(`Registering commands in debug mode for ${this.commandGuildServer.join(', ')}`);
-				for (const guild of this.commandGuildServer) {
-					await rest.put(Routes.applicationGuildCommands(this.config.applicationId, guild), { body: commands });
+				if (this.commandGuildServer) {
+					this.logger.info(`Registering commands in debug mode for ${this.commandGuildServer.join(', ')}`);
+					for (const guild of this.commandGuildServer) {
+						await rest.put(Routes.applicationGuildCommands(this.config.applicationId, guild), { body: commands });
+					}
+				} else {
+					this.logger.warn(`commandDevMode is enabled but no guilds are specified in the config.`)
 				}
 			} else {
 				await rest.put(Routes.applicationCommands(this.config.applicationId), { body: commands });
@@ -194,7 +196,19 @@ export class Bot {
 		}
 	}
 
-	getCog<Type extends Cog>(cogName: string): Type | undefined {
+	checkCog(cogname: string): boolean {
+		return this._getCog(cogname) !== undefined;
+	}
+
+	getCog<Type extends Cog>(cogName: string): Type {
+		const cog = this._getCog<Type>(cogName);
+		if (cog === undefined) {
+			throw new Error(`Cog ${cogName} not found`);
+		}
+		return cog;
+	}
+
+	private _getCog<Type extends Cog>(cogName: string): Type | undefined {
 		const cog = this.loadedCogs[cogName];
 		if (cog === undefined || cog.cogName !== cogName) {
 			return undefined;
@@ -203,7 +217,12 @@ export class Bot {
 	}
 
 	async doReady(): Promise<void> {
-		this.logger.info(`Logged in as ${this.client.user.tag}! Now readying up!`);
+		const user = this.client.user;
+		if (!user) {
+			throw new Error('User is not defined in doReady');
+		}
+
+		this.logger.info(`Logged in as ${user.tag}! Now readying up!`);
 		for (const cogName in this.loadedCogs) {
 			const cog = this.loadedCogs[cogName];
 			this.logger.info('Readying ' + cogName);
@@ -218,7 +237,7 @@ export class Bot {
 				type: ActivityTypes.PLAYING
 			}]
 		};
-		this.client.user.setPresence(presence);
+		user.setPresence(presence);
 
 		this.ready = true;
 		this.logger.info('RyuZu ' + this.version + ' ready!');
@@ -243,6 +262,7 @@ export class Bot {
 			if (!command) {
 				this.logger.error('Command not found: ' + interaction.commandName);
 				await interaction.reply('Something seems to be wrong with this command. Please contact the owner.');
+				return;
 			}
 			await command.function(interaction);
 		}

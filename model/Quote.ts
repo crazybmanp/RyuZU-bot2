@@ -15,7 +15,7 @@ export class Quote {
 	text: string;
 
 	@Column({ type: 'text', nullable: true })
-	category: string;
+	category?: string;
 
 	@CreateDateColumn()
 	createDate: Date;

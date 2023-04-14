@@ -71,6 +71,7 @@ class damnboiCog extends Cog {
 
 	public batata(interaction: Discord.CommandInteraction): void {
 		const text = interaction.options.getString('text');
+		if(!text) return void interaction.reply('You need to provide text to translate!');
 
 		const arr = text.split(' ');
 
@@ -116,21 +117,27 @@ class damnboiCog extends Cog {
 	}
 
 	private constructQuote(quote: Quote): string {
-		return `${quote.quoteNumber} (${quote.category}): ${quote.text}`;
+		return `${quote.quoteNumber} ${quote.category?`(${quote.category})`:``}: ${quote.text}`;
 	}
 
 	async quotedamn(interaction: Discord.CommandInteraction): Promise<void> {
 		let quote;
 
+		const guild = interaction.guild
+		if (!guild) {
+			void interaction.reply('This command can only be used in a guild.');
+			return;
+		}
+
 		const num = interaction.options.getNumber('quote');
 		if (num) {
-			quote = await this.bot.getCog<quoteCog>('quotes').GiveQuote(interaction.guild, num);
+			quote = await this.bot.getCog<quoteCog>('quotes').GiveQuote(guild, num);
 			if (typeof quote === 'undefined') {
 				void interaction.reply('Quote not found.');
 				return;
 			}
 		} else {
-			quote = await this.bot.getCog<quoteCog>('quotes').GiveQuote(interaction.guild);
+			quote = await this.bot.getCog<quoteCog>('quotes').GiveQuote(guild);
 		}
 
 		if (quote === null) {
@@ -143,7 +150,10 @@ class damnboiCog extends Cog {
 	}
 
 	mix(msg: Discord.CommandInteraction): void {
-		void msg.reply(this.memeMe(msg.options.getString('text')));
+		const message = msg.options.getString('text');
+		if (!message) return void msg.reply('You need to provide text to mix!');
+
+		void msg.reply(this.memeMe(message));
 	}
 }
 

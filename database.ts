@@ -118,7 +118,7 @@ export class databaseCog extends Cog implements IFunctionProvider, ICommandProvi
 		await this.addGuild(guild);
 	}
 
-	async getGuild(guildId: string): Promise<Guild> {
+	async getGuild(guildId: string): Promise<Guild | null> {
 		return this.datasource.manager.findOneBy(Guild, { id: guildId });
 	}
 
@@ -138,26 +138,39 @@ export class databaseCog extends Cog implements IFunctionProvider, ICommandProvi
 
 	async guildMembership(user: User, guildId: string): Promise<User|undefined> {
 		const guild = this.bot.client.guilds.resolve(guildId);
-		const member = guild.members.resolve(user.id);
+		if (!guild) {
+			this.bot.logger.warn(`Failed to find guild ${guildId} for user ${user.id}`);
+			return;
+		}
 
+		const member = guild.members.resolve(user.id);
 		if (!member) {
+			this.bot.logger.warn(`Failed to find member ${user.id} in guild ${guildId}`);
 			return;
 		}
 
 		const GM = new GuildMember();
 		GM.guildId = guildId;
 		GM.userId = user.id;
-		GM.nickname = member.nickname;
+		GM.nickname = member.nickname ?? undefined;
 
 		await this.datasource.manager.save(GM)
 
-		return this.getUser(user.id);
+		const newuser = await this.getUser(user.id)
+		if (!newuser)
+		{
+			throw Error('Failed to find user we just added.');
+		}
+		return newuser;
 	}
 
 	async findOrGetUser(userId: string, guildId: string): Promise<User> {
 		let user = await this.getUser(userId);
 		if (!user) {
 			const guild = this.bot.client.guilds.resolve(guildId);
+			if (!guild) {
+				throw Error('Failed to find guild.');
+			}
 			const member = guild.members.resolve(userId);
 
 			if (!member) {
@@ -179,7 +192,7 @@ export class databaseCog extends Cog implements IFunctionProvider, ICommandProvi
 		}
 	}
 
-	async getUser(id: string): Promise<User> {
+	async getUser(id: string): Promise<User|null> {
 		return this.datasource.manager.findOne(User, { where: { id: id }, relations: ['guildMember'] });
 	}
 
