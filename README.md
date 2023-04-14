@@ -2,6 +2,9 @@
 A discord bot built on modularity with cogs.
 
 ## Configuration
+
+(These instructions are out of date slightly, as now some config variables can be specified in environment variables)
+
 In order to run, RyuZU needs a settings.json file to be created inside of its directory. Your file should look something like this...
 ```json
 {
