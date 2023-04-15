@@ -2,6 +2,9 @@
 A discord bot built on modularity with cogs.
 
 ## Configuration
+
+(These instructions are out of date slightly, as now some config variables can be specified in environment variables)
+
 In order to run, RyuZU needs a settings.json file to be created inside of its directory. Your file should look something like this...
 ```json
 {
@@ -23,34 +26,28 @@ You may wish to have more in this file depending on what cogs you are using.
 * *gameMessage*: The message to show alongside the version number in the bot's status
 * *issuesPage*: A link to the relavent page to report issues to (provided for self-hosted, modified versions).
 * *stackdriverName*: The logName for logs sent to Google Stackdriver
+* *database*: An object containing the database information, as it should be passed to typeorm.
+	* *type*: The type of the database, suggested "postgres"
+	* *host*: Thostname or IP address of the database
+	* *port*: The port of the database
+	* *username*: The username to access the database
+	* *password*: The password to access the database
+	* *database*: The name of the database
 * *devMode*: Optional. Signifies that the bot is in development mode.
 
 Even if you don't plan on using the *owners* or any extensions, you should include an empty array for those values.
 
 ## Creating a cog
-You can creat a cog either locally as a loose file in the repo, or make an NPM package (untested, but intended). The standard cog skeleton looks like this:
+You can creat a cog either locally as a loose file in the repo, or make an NPM package (untested, but intended). A cog should extend the Cog class.
 
-```javascript
-var bot = {};
+Cogs should register commands through bot.registerCommand. The first argument is the command name, the second is the function to run when the command is called, implementing CogFunction.
 
-var setup = function (b) {
-    bot = b;
-    bot.registerCommand("ping", function (msg) {msg.reply('Pong!')});
-}
-
-exports.requires = [];
-exports.setup = setup;
-```
-(note that creating annonymous functions is not required or recommended)
-You may also attatch functions onto the bot system for other cogs to use and require.
-
-Look at the admin.js cog for a good example of how to use the system.
+Extra functionality may be given in the public interface of your cog. Other cogs may be accessed through the getCog function.
 
 ### Notes
 * bot will contain all of the important systems such as bot.client, which is the Discord.js client the bot runs.
-* overwriting other cogs methods defined on bot is not recommended, but is possible.
 * exports.requires should be in the same format as used for loading cogs
-* setup takes in the bot as a parameter, and you should store that as a local variable so that your functions can reference it, if need be (commands will also get access to the message passed to the handler)
+* every cog gets a local reference to the bot, so you can access it from anywhere in your cog, this is implemented in the Cog constructor.
 
 ## Using a cog
 There are 3 ways to use a cog:

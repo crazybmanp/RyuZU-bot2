@@ -1,0 +1,10 @@
+---
+name: "ryuzu"
+services:
+  Ryuzu:
+    image: ryuzu-bot
+    build: .
+    container_name: RyuZu-bot
+    volumes:
+      - ./config.json:/app/config.json
+    restart: on-failure:5

@@ -1,0 +1,9 @@
+config.json
+.env
+.git
+.eslintcache
+.vscode
+tsconfig.tsbuildinfo
+node_modules
+**/*.js
+**/*.js.map
