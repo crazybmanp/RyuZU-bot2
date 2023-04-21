@@ -105,9 +105,9 @@ export class databaseCog extends Cog implements IFunctionProvider, ICommandProvi
 		await super.shutdown();
 	}
 
-	registerCog(target: Cog): void {
+	registerCog(target: IDatabaseConsumer): void {
 		this.bot.logger.debug(`Registering cog ${target.cogName} for database.`);
-		this.registeredConsumers.push(target as IDatabaseConsumer);
+		this.registeredConsumers.push(target);
 	}
 
 	getManager(): EntityManager {
