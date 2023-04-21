@@ -1,7 +1,7 @@
-import bunyan from 'bunyan';
 import { LoggingBunyan } from '@google-cloud/logging-bunyan';
-import { Bot } from './lib/Bot';
-import { Cog } from './lib/Cog';
+import bunyan from 'bunyan';
+import { Bot } from '../../lib/Bot';
+import { Cog } from '../../lib/Cog';
 
 export class loggerCog extends Cog {
 	requires: string[] = [];

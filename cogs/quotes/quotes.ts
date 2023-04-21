@@ -1,19 +1,18 @@
 import { SlashCommandSubcommandBuilder } from '@discordjs/builders';
 import Discord, { TextChannel } from 'discord.js';
 import { EntityManager } from 'typeorm';
-import { adminCog } from '../admin';
-import { databaseCog } from '../database';
-import { Bot } from '../lib/Bot';
-import { Cog } from '../lib/Cog';
-import { IDatabaseConsumer } from '../lib/interfaces/IDatabaseConsumer';
-import { SubcommandHandler } from '../lib/Subcommand';
-import { Quote } from '../model/Quote';
-import { QuoteNumber } from '../model/QuoteNumber';
-import { utilCog } from '../util';
+import { adminCog } from '../../core/admin';
+import { databaseCog, IDatabaseConsumer } from '../../core/database';
+import { Bot } from '../../lib/Bot';
+import { Cog } from '../../lib/Cog';
+import { SubcommandHandler } from '../../lib/Subcommand';
+import { QuoteNumber } from './QuoteNumber';
+import { utilCog } from '../../core/util';
 import { error } from 'console';
+import { Quote } from './Quote';
 
 export class quoteCog extends Cog implements IDatabaseConsumer {
-	requires: string[] = ['./database.js', './util.js'];
+	requires: string[] = ['core/database', 'core/util'];
 	cogName: string = 'quotes';
 
 	private manager: EntityManager;

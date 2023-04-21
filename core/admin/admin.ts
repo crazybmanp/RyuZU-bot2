@@ -1,8 +1,8 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import Discord, { GuildChannel } from 'discord.js';
-import { Bot } from './lib/Bot';
-import { Cog } from './lib/Cog';
-import { utilCog } from './util';
+import { Bot } from '../../lib/Bot';
+import { Cog } from '../../lib/Cog';
+import { utilCog } from '../util/util';
 
 export class adminCog extends Cog {
 	requires: string[] = [];
