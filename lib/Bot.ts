@@ -1,11 +1,11 @@
-import Discord, { Client, CommandInteraction, Guild, Interaction, PresenceData } from 'discord.js';
-import { REST } from '@discordjs/rest'
-import { Routes } from 'discord-api-types/v9';
-import { Cog } from './Cog';
-import Logger from 'bunyan';
-import { loggerCog } from '../logger';
-import { ActivityTypes } from 'discord.js/typings/enums';
 import { SlashCommandBuilder } from '@discordjs/builders';
+import { REST } from '@discordjs/rest';
+import Logger from 'bunyan';
+import { Routes } from 'discord-api-types/v9';
+import Discord, { Client, CommandInteraction, Guild, Interaction, PresenceData } from 'discord.js';
+import { ActivityTypes } from 'discord.js/typings/enums';
+import { loggerCog } from '../core/logger';
+import { Cog } from './Cog';
 import { Config, getConfig } from './Config';
 export type CogFactory = (bot: Bot) => Cog;
 export type CommandFunction = (interaction: Interaction) => Promise<void> | void;
@@ -15,7 +15,7 @@ export type CommandRegistration = {
 	function: CommandFunction,
 }
 
-const coreCogs = ['./admin.js', './util.js'];
+const coreCogs = ['core/admin', './core/util'];
 
 export class Bot {
 	commands: CommandRegistration[];
@@ -48,7 +48,7 @@ export class Bot {
 		this.version = (require('../package.json').version as string);
 
 		// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
-		const LCInstance: loggerCog = ((require('../logger.js').default as CogFactory)(this) as loggerCog);
+		const LCInstance: loggerCog = ((require('../core/logger').default as CogFactory)(this) as loggerCog);
 		this.loadedCogs[LCInstance.cogName] = LCInstance;
 		LCInstance.preinit();
 

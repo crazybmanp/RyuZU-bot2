@@ -1,12 +1,12 @@
-const memeMsg: string = 'oh yeah damn damn boi DAMN BOI HE THICC BOI THAT\'S A THICC ASS BOI DAMN';
-import { Bot } from '../lib/Bot';
-import { Cog } from '../lib/Cog';
-import Discord from 'discord.js';
-import { Quote } from '../model/Quote';
-import { quoteCog } from './quotes';
 import { SlashCommandBuilder } from '@discordjs/builders';
+import Discord from 'discord.js';
+import { Bot } from '../../lib/Bot';
+import { Cog } from '../../lib/Cog';
+import { Quote, quoteCog } from '../quotes';
 
-class damnboiCog extends Cog {
+const memeMsg: string = 'oh yeah damn damn boi DAMN BOI HE THICC BOI THAT\'S A THICC ASS BOI DAMN';
+
+export class damnboiCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'damnboi';
 

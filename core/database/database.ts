@@ -1,14 +1,14 @@
 import { Command } from 'commander';
 import Discord from 'discord.js';
 import { DataSource, EntityManager } from 'typeorm';
-import { Bot } from './lib/Bot';
-import { Cog } from './lib/Cog';
-import { ICommandProvider } from './lib/interfaces/ICommandProvider';
-import { IDatabaseConsumer } from './lib/interfaces/IDatabaseConsumer';
-import { IFunctionProvider } from './lib/interfaces/IFunctionProvider';
-import { Guild } from './model/Guild';
-import { GuildMember } from './model/GuildMember';
-import { User } from './model/User';
+import { Bot } from '../../lib/Bot';
+import { Cog } from '../../lib/Cog';
+import { ICommandProvider } from '../../lib/interfaces/ICommandProvider';
+import { IFunctionProvider } from '../../lib/interfaces/IFunctionProvider';
+import { Guild } from '../../model/Guild';
+import { GuildMember } from '../../model/GuildMember';
+import { User } from '../../model/User';
+import { IDatabaseConsumer } from './IDatabaseConsumer';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Entities = any[];

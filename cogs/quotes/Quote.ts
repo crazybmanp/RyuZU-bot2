@@ -1,6 +1,5 @@
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import { Guild } from './Guild';
-import { User } from './User';
+import { Guild, User } from '../../model';
 
 @Entity({ name: 'Quote' })
 @Index(['guildId', 'quoteNumber'], { unique: true })

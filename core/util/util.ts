@@ -1,6 +1,6 @@
-import { Bot } from './lib/Bot';
-import { Cog } from './lib/Cog';
 import Discord, { CommandInteraction } from 'discord.js';
+import { Bot } from '../../lib/Bot';
+import { Cog } from '../../lib/Cog';
 
 export class utilCog extends Cog {
 	requires: string[] = [];

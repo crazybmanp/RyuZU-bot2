@@ -1,5 +1,5 @@
 import { Column, Entity, OneToOne, PrimaryColumn } from 'typeorm';
-import { Guild } from './Guild';
+import { Guild } from '../../model/Guild';
 
 @Entity({ name: 'QuoteNumber' })
 export class QuoteNumber {
