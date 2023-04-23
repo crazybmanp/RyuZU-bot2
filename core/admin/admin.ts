@@ -64,12 +64,12 @@ export class adminCog extends Cog {
 	}
 
 	public hasPermOnServer(perm: Discord.PermissionString, author: Discord.GuildMember): boolean {
-		return author.permissions.has('MANAGE_MESSAGES');
+		return author.permissions.has(perm);
 	}
 
 	public hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel | Discord.TextChannel | Discord.NewsChannel | Discord.ThreadChannel, author: Discord.User): boolean {
 		const perms = channel.permissionsFor(author);
-		return perms?.has('MANAGE_MESSAGES') ?? false;
+		return perms?.has(perm) ?? false;
 	}
 
 	async say(interaction: Discord.CommandInteraction): Promise<void> {
