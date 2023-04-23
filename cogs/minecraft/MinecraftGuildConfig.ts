@@ -19,4 +19,7 @@ export class MinecraftGuildConfig {
 
 	@Column({ type: 'text', nullable: true })
 	extraWhitelistedPlayers: string | null;
+
+	@Column({ type: 'varchar', length: 255, nullable: true })
+	adminChannelId: string | null;
 }

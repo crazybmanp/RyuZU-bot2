@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Guild } from '../../model';
 
 @Entity({ name: 'MinecraftServer' })
+@Index(['guildId', 'name'], { unique: true })
 export class MinecraftServer {
 	@PrimaryGeneratedColumn()
 	id: number;
@@ -32,5 +33,5 @@ export class MinecraftServer {
 	rconPassword: string;
 
 	@Column({ default: true })
-	whitelistingEnabled: boolean;
+	managedWhitelist: boolean;
 }

@@ -2,6 +2,7 @@ import Discord, { Guild } from 'discord.js';
 
 import { databaseCog as DatabaseCog, IDatabaseConsumer } from '../../core/database';
 import { adminCog as AdminCog } from '../../core/admin';
+import { utilCog as UtilCog } from '../../core/util';
 import { Bot } from '../../lib/Bot'
 import { Cog } from '../../lib/Cog';
 
@@ -14,14 +15,16 @@ import { MinecraftGuildConfig } from './MinecraftGuildConfig';
 import { getUuidFromUsername } from './mojangApi';
 import { getWhitelistedUsernames, unwhitelistPlayer, whitelistPlayer } from './rcon';
 import { GuildMember, User } from '../../model';
+import { SubcommandGroupHandler } from '../../lib/SubcommandGroup';
 
 export class MinecraftCog extends Cog implements IDatabaseConsumer {
-	requires: string[] = ['core:database', 'core:admin'];
+	requires: string[] = ['core:database', 'core:admin', 'core:util'];
 	cogName: string = 'minecraft';
 
 	private manager: EntityManager;
 	private databaseCog: DatabaseCog;
 	private adminCog: AdminCog;
+	private utilCog: UtilCog;
 
 	constructor(bot: Bot) {
 		super(bot);
@@ -43,6 +46,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 	}
 	setup(): void {
 		this.adminCog = this.bot.getCog<AdminCog>('admin');
+		this.utilCog = this.bot.getCog<UtilCog>('util');
 
 		const minecraftCommand = new SubcommandHandler('minecraft', 'Minecraft subcommand');
 		minecraftCommand.addSubcommand({
@@ -104,7 +108,102 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 						.setDescription('The server to sync')
 						.setRequired(true)),
 			function: this.commandAdminSync.bind(this)
-		})
+		});
+
+		minecraftAdminCommand.addSubcommand({
+			command: 'set-admin-channel',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('set-admin-channel')
+				.setDescription('Set the admin channel for the Minecraft cog')
+				.addChannelOption(option =>
+					option.setName('channel')
+						.setDescription('The channel to set as the admin channel')
+						.setRequired(false)),
+			function: this.commandAdminSetAdminChannel.bind(this)
+		});
+
+		const minecraftAdminServerGroup = new SubcommandGroupHandler('server', 'Commands to administrate Minecraft servers');
+		minecraftAdminServerGroup.addSubcommand({
+			command: 'add',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('add')
+				.setDescription('Add a Minecraft server')
+				.addStringOption(option =>
+					option.setName('name')
+						.setDescription('The name of the server')
+						.setRequired(true))
+				.addBooleanOption(option =>
+					option.setName('whitelist-managed')
+						.setDescription('Whether or not the bot manages the servers whitelist')
+						.setRequired(true))
+				.addStringOption(option =>
+					option.setName('rcon-host')
+						.setDescription('The host of the RCON server')
+						.setRequired(true))
+				.addIntegerOption(option =>
+					option.setName('rcon-port')
+						.setDescription('The port of the RCON server')
+						.setRequired(true))
+				.addStringOption(option =>
+					option.setName('rcon-password')
+						.setDescription('The password of the RCON server')
+						.setRequired(true)),
+			function: this.commandAdminAddServer.bind(this)
+		});
+
+		minecraftAdminServerGroup.addSubcommand({
+			command: 'list',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('list')
+				.setDescription('List all Minecraft servers'),
+			function: this.commandAdminListServers.bind(this)
+		});
+
+		minecraftAdminServerGroup.addSubcommand({
+			command: 'modify',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('modify')
+				.setDescription('Modify a Minecraft server')
+				.addStringOption(option =>
+					option.setName('name')
+						.setDescription('The name of the server to modify')
+						.setRequired(true))
+				.addBooleanOption(option =>
+					option.setName('whitelist-managed')
+						.setDescription('Whether or not the bot manages the servers whitelist')
+						.setRequired(false))
+				.addBooleanOption(option =>
+					option.setName('enabled')
+						.setDescription('Whether or not the server is enabled')
+						.setRequired(false))
+				.addStringOption(option =>
+					option.setName('rcon-host')
+						.setDescription('The host of the RCON server')
+						.setRequired(false))
+				.addIntegerOption(option =>
+					option.setName('rcon-port')
+						.setDescription('The port of the RCON server')
+						.setRequired(false))
+				.addStringOption(option =>
+					option.setName('rcon-password')
+						.setDescription('The password of the RCON server')
+						.setRequired(false)),
+			function: this.commandAdminModifyServer.bind(this)
+		});
+
+		minecraftAdminServerGroup.addSubcommand({
+			command: 'delete',
+			subcommandBuilder: new SlashCommandSubcommandBuilder()
+				.setName('delete')
+				.setDescription('Delete a Minecraft server')
+				.addStringOption(option =>
+					option.setName('name')
+						.setDescription('The name of the server to delete')
+						.setRequired(true)),
+			function: this.commandAdminDeleteServer.bind(this)
+		});
+
+		minecraftAdminCommand.addSubcommandGroup(minecraftAdminServerGroup);
 
 		this.bot.registerCommand({
 			command: 'minecraft',
@@ -121,7 +220,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		this.bot.getCog<DatabaseCog>('database').registerCog(this);
 	}
 
-	private async resolveGuildMembership(interaction: Discord.CommandInteraction): Promise<[guild: Guild, guildMember: Discord.GuildMember, dbUser: User, dbGuildMember: GuildMember]> {
+	private async resolveGuildMembership(interaction: Discord.CommandInteraction): Promise<[guild: Guild, guildMember: Discord.GuildMember, dbUser: User, dbGuildMember: GuildMember, mcGuildConfig?: MinecraftGuildConfig]> {
 		const guild = interaction.guild;
 		if (!guild) {
 			throw Error('This command can only be used in a guild');
@@ -139,12 +238,27 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 			throw Error('Failed to resolve GuildMember for interaction');
 		}
 
-		return [guild, guildMember, dbUser, dbGuildMember];
+		const mcGuildConfig = await this.manager.findOne(MinecraftGuildConfig, { where: { guildId: guild.id } });
+
+		return [guild, guildMember, dbUser, dbGuildMember, mcGuildConfig || undefined];
+	}
+
+	private async sendAdminMessage(message: Discord.MessagePayload | Discord.MessageOptions, mcGuildConfig?: MinecraftGuildConfig): Promise<void> {
+		if (!mcGuildConfig?.adminChannelId) return;
+		const adminChannel = await this.bot.client.channels.fetch(mcGuildConfig.adminChannelId);
+		if (!adminChannel) {
+			throw Error('Failed to find admin channel');
+		}
+
+		if (!adminChannel.isText()) {
+			throw Error('Admin channel is not a text channel');
+		}
+		await adminChannel.send(message);
 	}
 
 	private async commandWhitelist(interaction: Discord.CommandInteraction): Promise<void> {
 		const username = interaction.options.getString('username', true);
-		const [guild, , , dbGuildMember] = await this.resolveGuildMembership(interaction);
+		const [guild, , , dbGuildMember, mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
 		if (!dbGuildMember) {
 			throw Error('Failed to find GuildMembership for user');
@@ -155,7 +269,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 			mcUuid = await getUuidFromUsername(username);
 		} catch (e) {
 			await interaction.reply({
-				content: 'That Mineacraft username does not exist',
+				content: 'That Minecraft username does not exist',
 				ephemeral: true
 			});
 			return;
@@ -170,24 +284,75 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		const guildConfig = await guildConfigRepo.findOne({ where: { guildId: guild.id } });
 		if (guildConfig && guildConfig.whitelistRole) {
 			if (!guildMember.roles.cache.has(guildConfig.whitelistRole)) {
-				// TODO: Send approval to admins
-				await interaction.reply({
-					content: 'You do not have permission to whitelist yourself',
-					ephemeral: true
-				});
-				return;
+				if (mcGuildConfig?.adminChannelId) {
+					await interaction.reply({
+						content: 'You do not have permission to whitelist yourself, but a request to whitelist you has been sent to the admins',
+						ephemeral: true
+					});
+					const adminChannel = guild.channels.resolve(mcGuildConfig.adminChannelId);
+					if (adminChannel && adminChannel.isText()) {
+						// TODO: Approve and Deny interaction
+						await adminChannel.send({
+							content: `<@${interaction.user.id}> has requested to be whitelisted with the username ${username}`
+						});
+					}
+					return;
+				} else {
+					await interaction.reply({
+						content: 'You do not have permission to whitelist yourself',
+						ephemeral: true
+					});
+					return;
+				}
 			}
 		}
+
+		const serverRepo = this.manager.getRepository(MinecraftServer);
+		const servers = await serverRepo.find({ where: { guildId: guild.id, managedWhitelist: true, enabled: true } });
 
 		// Check if the user is already whitelisted
 		const playerRepo = this.manager.getRepository(MinecraftPlayer);
 		const existingPlayerByDiscord = await playerRepo.findOne({ where: { memberId: dbGuildMember.id } });
 		if (existingPlayerByDiscord) {
-			await interaction.reply({
-				content: 'You are already whitelisted',
-				ephemeral: true
-			});
-			return;
+			if (existingPlayerByDiscord.minecraftUuid === mcUuid) {
+				await interaction.reply({
+					content: 'You are already whitelisted',
+					ephemeral: true
+				});
+				return;
+			}
+
+			if (existingPlayerByDiscord.blocked) {
+				await interaction.reply({
+					content: 'You are blocked from Minecraft',
+					ephemeral: true
+				});
+				return;
+			}
+
+			const oldUsername = existingPlayerByDiscord.minecraftUsername;
+			if (oldUsername) {
+				for (const server of servers) {
+					try {
+						const result = await unwhitelistPlayer(server.rconHost, server.rconPort, server.rconPassword, oldUsername, true);
+						if (!result.success && result.error) {
+							throw Error(result.error);
+						}
+						if (result.warning) {
+							await this.sendAdminMessage({
+								content: `Encountered problems processing un-whitelist request for ${oldUsername} (username change) on ${server.name}: ${result.warning}`
+							}, mcGuildConfig);
+						}
+					} catch (e) {
+						const errorMessage = e instanceof Error ? e.message : 'unknown error';
+						await this.sendAdminMessage({
+							content: `Encountered error processing un-whitelist request for ${oldUsername} on ${server.name}: ${errorMessage}`
+						}, mcGuildConfig);
+					}
+				}
+			}
+
+			await playerRepo.remove(existingPlayerByDiscord);
 		}
 
 
@@ -214,9 +379,6 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		player.member = dbGuildMember;
 		await playerRepo.save(player);
 
-		const serverRepo = this.manager.getRepository(MinecraftServer);
-		const servers = await serverRepo.find({ where: { guildId: guild.id, whitelistingEnabled: true, enabled: true } });
-
 		let problems = false;
 		for (const server of servers) {
 			try {
@@ -225,12 +387,13 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 				} else {
 					const result = await whitelistPlayer(server.rconHost, server.rconPort, server.rconPassword, username);
 					if (result.warning) {
+						await this.sendAdminMessage({
+							content: `Encountered problems processing whitelist request for ${username} on ${server.name}: ${result.warning}`
+						}, mcGuildConfig);
 						this.bot.logger.warn(`Warning while whitelisting ${username} on ${server.name}: ${result.warning}`);
 					}
 					if (!result.success) {
-						server.needsSync = true;
-						await serverRepo.save(server);
-						problems = true;
+						throw Error(result.error);
 					}
 				}
 			} catch (e) {
@@ -251,9 +414,23 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		}
 	}
 
+	private async checkAdmin(guild: Guild, member: Discord.GuildMember, mcGuildConfig?: MinecraftGuildConfig): Promise<boolean> {
+		if (this.adminCog.isManagerOnServer(member)) {
+			return true;
+		}
+
+		if (mcGuildConfig && mcGuildConfig.adminChannelId) {
+			const channel = await guild.channels.fetch(mcGuildConfig.adminChannelId);
+			if (channel && channel.isText()) {
+				return this.adminCog.isModOnChannel(channel, member.user);
+			}
+		}
+		return false;
+	}
+
 	private async commandAdminSetWhitelistRole(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember, ,] = await this.resolveGuildMembership(interaction);
-		if (!this.adminCog.isManagerOnServer(guildMember)) {
+		const [guild, guildMember,,,mcGuildConfig] = await this.resolveGuildMembership(interaction);
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
 				content: 'You do not have permission to use this command',
 				ephemeral: true
@@ -284,10 +461,48 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		}
 	}
 
-	private async commandAdminBlockPlayer(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember] = await this.resolveGuildMembership(interaction);
-
+	private async commandAdminSetAdminChannel(interaction: Discord.CommandInteraction): Promise<void> {
+		const [guild, guildMember, ,] = await this.resolveGuildMembership(interaction);
 		if (!this.adminCog.isManagerOnServer(guildMember)) {
+			await interaction.reply({
+				content: 'You do not have permission to use this command',
+				ephemeral: true
+			});
+			return;
+		}
+		const channel = interaction.options.getChannel('channel', false);
+		const guildConfigRepo = this.manager.getRepository(MinecraftGuildConfig);
+		let guildConfig = await guildConfigRepo.findOne({ where: { guildId: guild.id } });
+		if (!guildConfig) {
+			guildConfig = new MinecraftGuildConfig();
+			guildConfig.guildId = guild.id;
+		}
+		if (!channel) {
+			guildConfig.adminChannelId = null;
+			await guildConfigRepo.save(guildConfig);
+			await interaction.reply({
+				content: 'Cleared admin channel; no admin channel is set',
+				ephemeral: true
+			});
+		} else {
+			guildConfig.adminChannelId = channel.id;
+			await guildConfigRepo.save(guildConfig);
+			await interaction.reply({
+				content: `Set admin channel to #${channel.name}`,
+				ephemeral: true
+			});
+
+			const guildChannel = await this.bot.client.channels.fetch(channel.id);
+			guildChannel?.isText() && await guildChannel.send({
+				content: 'This channel has been set as the admin channel for the Minecraft cog. Users with the "Manage Messages" permission on this channel can now invoke /minecraftadmin commands.'
+			});
+		}
+	}
+
+	private async commandAdminBlockPlayer(interaction: Discord.CommandInteraction): Promise<void> {
+		const [guild, guildMember,,,mcGuildConfig] = await this.resolveGuildMembership(interaction);
+
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
 				content: 'You do not have permission to use this command',
 				ephemeral: true
@@ -312,42 +527,55 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		if (!minecraftPlayer) {
 			minecraftPlayer = new MinecraftPlayer();
 			minecraftPlayer.member = targetGuildMember;
+		} else if (minecraftPlayer.blocked) {
+			await interaction.reply({
+				content: 'This user is already blocked',
+				ephemeral: true
+			});
+			return;
 		}
 
 		minecraftPlayer.blocked = true;
 		await minecraftPlayerRepo.save(minecraftPlayer);
-
+		await interaction.deferReply({
+			ephemeral: true
+		});
 		if (minecraftPlayer.minecraftUsername && minecraftPlayer.minecraftUuid) {
 			const serverRepo = this.manager.getRepository(MinecraftServer);
-			const servers = await serverRepo.find({ where: { guildId: guild.id, whitelistingEnabled: true, enabled: true } });
+			const servers = await serverRepo.find({ where: { guildId: guild.id, managedWhitelist: true, enabled: true } });
 			for (const server of servers) {
 				try {
 					const result = await unwhitelistPlayer(server.rconHost, server.rconPort, server.rconPassword, minecraftPlayer.minecraftUsername, true);
 					if (result.warning) {
+						await this.sendAdminMessage({
+							content: `Encountered problems while unwhitelisting player ${minecraftPlayer.minecraftUsername} (processing a block command) on ${server.name}: ${result.warning}`,
+						}, mcGuildConfig);
 						this.bot.logger.warn(`Warning while unwhitelisting ${minecraftPlayer.minecraftUsername} on ${server.name}: ${result.warning}`);
 					}
 					if (!result.success) {
-						server.needsSync = true;
-						await serverRepo.save(server);
+						throw Error(result.error);
 					}
 				} catch (e) {
+					const errorMessage = e instanceof Error ? e.message : 'unknown error';
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 					this.bot.logger.warn(`Failed to unwhitelist player ${minecraftPlayer.minecraftUsername}`, { err: e });
+					await this.sendAdminMessage({
+						content: `Encountered problems while unwhitelisting player ${minecraftPlayer.minecraftUsername} (processing a block command) on ${server.name}: ${errorMessage}`,
+					}, mcGuildConfig);
 					server.needsSync = true;
 					await serverRepo.save(server);
 				}
 			}
 		}
-		await interaction.reply({
-			content: 'User has been blocked',
-			ephemeral: true
+		await interaction.editReply({
+			content: 'User has been blocked'
 		});
 	}
 
 	private async commandAdminUnblockPlayer(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
-		if (!this.adminCog.isManagerOnServer(guildMember)) {
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
 				content: 'You do not have permission to use this command',
 				ephemeral: true
@@ -384,22 +612,31 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		} else {
 			minecraftPlayer.blocked = false;
 			await minecraftPlayerRepo.save(minecraftPlayer);
+			await interaction.deferReply({
+				ephemeral: true
+			});
 			const serverRepo = this.manager.getRepository(MinecraftServer);
-			const servers = await serverRepo.find({ where: { guildId: guild.id, whitelistingEnabled: true, enabled: true } });
+			const servers = await serverRepo.find({ where: { guildId: guild.id, managedWhitelist: true, enabled: true } });
 			for (const server of servers) {
 				try {
 					const result = await whitelistPlayer(server.rconHost, server.rconPort, server.rconPassword, minecraftPlayer.minecraftUsername);
 					if (result.warning) {
+						await this.sendAdminMessage({
+							content: `Encountered problems while whitelisting player ${minecraftPlayer.minecraftUsername} (processing an unblock command) on ${server.name}: ${result.warning}`,
+						}, mcGuildConfig);
+
 						this.bot.logger.warn(`Warning while whitelisting ${minecraftPlayer.minecraftUsername} on ${server.name}: ${result.warning}`);
 					}
 					if (!result.success) {
-						problems = true;
-						server.needsSync = true;
-						await serverRepo.save(server);
+						throw Error(result.error);
 					}
 				} catch (e) {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 					this.bot.logger.warn('Failed to unwhitelist player', { err: e });
+					const errorMessage = e instanceof Error ? e.message : 'unknown error';
+					await this.sendAdminMessage({
+						content: `Encountered problems while whitelisting player ${minecraftPlayer.minecraftUsername} (processing an unblock command) on ${server.name}: ${errorMessage}`,
+					}, mcGuildConfig);
 					problems = true;
 					server.needsSync = true;
 					await serverRepo.save(server);
@@ -407,16 +644,179 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 			}
 		}
 
+		await interaction.editReply({
+			content: problems ? 'User has been restored, but re-whitelisting failed on one or more servers' : 'User has been restored'
+		});
+	}
+
+	private async commandAdminAddServer(interaction: Discord.CommandInteraction): Promise<void> {
+		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
+
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
+			await interaction.reply({
+				content: 'You do not have permission to use this command',
+				ephemeral: true
+			});
+			return;
+		}
+		this.utilCog.voidReply(interaction);
+
+		// Check for duplicate name
+		const serverRepo = this.manager.getRepository(MinecraftServer);
+		const existingServer = await serverRepo.findOne({ where: { guildId: guild.id, name: interaction.options.getString('name', true) } });
+		if (existingServer) {
+			await interaction.channel?.send({
+				content: `<@${interaction.user.id}> A server with that name already exists`
+			});
+			return;
+		}
+
+		const server = new MinecraftServer();
+		server.guildId = guild.id;
+		server.name = interaction.options.getString('name', true);
+		server.rconHost = interaction.options.getString('rcon-host', true);
+		server.rconPort = interaction.options.getInteger('rcon-port', true);
+		server.rconPassword = interaction.options.getString('rcon-password', true);
+		server.managedWhitelist = interaction.options.getBoolean('whitelist-managed', true);
+		server.enabled = true;
+
+		try {
+			// Run an rcon command just to make sure everything works
+			await getWhitelistedUsernames(server.rconHost, server.rconPort, server.rconPassword);
+		} catch (e) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+			this.bot.logger.warn('Encountered error when validating RCON for new server', { err: e });
+			await interaction.channel?.send({
+				content: `<@${interaction.user.id}> Invalid or incorrect RCON configuration`,
+			});
+			return;
+		}
+
+		await serverRepo.save(server);
+		await this.syncServer(server, guild);
+		await interaction.channel?.send({
+			content: `<@${interaction.user.id}> Server added`,
+		});
+	}
+
+	private async commandAdminListServers(interaction: Discord.CommandInteraction): Promise<void> {
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
+
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
+			await interaction.reply({
+				content: 'You do not have permission to use this command',
+				ephemeral: true
+			});
+			return;
+		}
+
+		const serverRepo = this.manager.getRepository(MinecraftServer);
+		const servers = await serverRepo.find({ where: { guildId: guild.id } });
+		if (servers.length === 0) {
+			await interaction.reply({
+				content: 'There are no servers configured for this guild',
+				ephemeral: true
+			});
+			return;
+		}
+
+		const embed = new Discord.MessageEmbed();
+		embed.setTitle('Minecraft Servers');
+		for (const server of servers) {
+			embed.addFields({ name: 'Server Name', value: server.name, inline: true });
+			embed.addFields({ name: 'Enabled?', value: server.enabled ? 'Yes' : 'No', inline: true });
+			embed.addFields({ name: 'Managed Whitelist?', value: server.managedWhitelist ? 'Yes' : 'No', inline: true });
+		}
 		await interaction.reply({
-			content: problems ? 'User has been restored, but re-whitelisting failed on one or more servers' : 'User has been restored',
+			embeds: [embed],
+			ephemeral: true
+		});
+	}
+
+	private async commandAdminModifyServer(interaction: Discord.CommandInteraction): Promise<void> {
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
+
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
+			await interaction.reply({
+				content: 'You do not have permission to use this command',
+				ephemeral: true
+			});
+			return;
+		}
+
+		const serverName = interaction.options.getString('server', true);
+		const serverRepo = this.manager.getRepository(MinecraftServer);
+		const server = await serverRepo.findOne({ where: { guildId: guild.id, name: serverName } });
+		if (!server) {
+			await interaction.reply({
+				content: 'Server not found',
+				ephemeral: true
+			});
+			return;
+		}
+		let voidedReply = false;
+		const rconHost = interaction.options.getString('rcon-host', false);
+		const rconPort = interaction.options.getInteger('rcon-port', false);
+		const rconPassword = interaction.options.getString('rcon-password', false);
+		const managedWhitelist = interaction.options.getBoolean('whitelist-managed', false);
+		const enabled = interaction.options.getBoolean('enabled', false);
+
+		if (rconPassword) {
+			voidedReply = true;
+			this.utilCog.voidReply(interaction);
+			server.rconPassword = rconPassword;
+		}
+
+		if (rconHost) server.rconHost = rconHost;
+		if (rconPort) server.rconPort = rconPort;
+		if (managedWhitelist !== undefined && managedWhitelist !== null) server.managedWhitelist = managedWhitelist;
+		if (enabled !== undefined && enabled !== null) server.enabled = enabled;
+		await serverRepo.save(server);
+
+		if (voidedReply) {
+			await interaction.channel?.send({
+				content: `<@${interaction.user.id}> Server updated`,
+			});
+		} else {
+			await interaction.reply({
+				content: `Server updated`,
+				ephemeral: true
+			});
+		}
+	}
+
+	private async commandAdminDeleteServer(interaction: Discord.CommandInteraction): Promise<void> {
+		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
+
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
+			await interaction.reply({
+				content: 'You do not have permission to use this command',
+				ephemeral: true
+			});
+			return;
+		}
+
+		const serverName = interaction.options.getString('name', true);
+		const serverRepo = this.manager.getRepository(MinecraftServer);
+		const server = await serverRepo.findOne({ where: { guildId: guild.id, name: serverName } });
+		if (!server) {
+			await interaction.reply({
+				content: 'Server not found',
+				ephemeral: true
+			});
+			return;
+		}
+		await serverRepo.delete(server);
+		await interaction.reply({
+			content: 'Server deleted',
 			ephemeral: true
 		});
 	}
 
 	private async commandAdminSync(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
-		if (!this.adminCog.isManagerOnServer(guildMember)) {
+		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
 				content: 'You do not have permission to use this command',
 				ephemeral: true
@@ -425,9 +825,9 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		}
 		const serverName = interaction.options.getString('server', true);
 		const serverRepo = this.manager.getRepository(MinecraftServer);
-		const server = await serverRepo.findOne({ where: { guildId: guild.id, whitelistingEnabled: true, enabled: true, name: serverName } });
+		const server = await serverRepo.findOne({ where: { guildId: guild.id, managedWhitelist: true, enabled: true, name: serverName } });
 		if (!server) {
-			const validServerNames = (await serverRepo.find({ where: { guildId: guild.id, whitelistingEnabled: true, enabled: true } })).map(s => s.name);
+			const validServerNames = (await serverRepo.find({ where: { guildId: guild.id, managedWhitelist: true, enabled: true } })).map(s => s.name);
 			await interaction.reply({
 				content: 'Server not found, please choose from this list: ' + validServerNames.join(', '),
 				ephemeral: true
@@ -455,7 +855,6 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 				}
 			);
 			await interaction.reply({
-				content: 'Sync complete, but there were some issues',
 				embeds: [embedBuilder],
 				ephemeral: true
 			});
@@ -467,7 +866,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer {
 		const failedRemoveUsernames: string[] = [];
 		const whitelistPerServer = await getWhitelistedUsernames(server.rconHost, server.rconPort, server.rconPassword);
 		const playerRepo = this.manager.getRepository(MinecraftPlayer);
-		// Get all of the players whre their member (which is a GuildMember object) is on this server
+
 		const players = await playerRepo.find({
 			select: ['minecraftUsername'],
 			where: {
