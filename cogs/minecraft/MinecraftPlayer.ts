@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { GuildMember } from '../../model';
 
 @Entity('MinecraftPlayer')
+@Index(['memberId'], { unique: true })
 export class MinecraftPlayer {
 	@PrimaryGeneratedColumn()
 	id: number;

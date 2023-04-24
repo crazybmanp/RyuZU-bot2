@@ -38,7 +38,7 @@ export async function whitelistPlayer(rconHost: string, rconPort: number, rconPa
 	}
 }
 
-export async function unwhitelistPlayer(rconHost: string, rconPort: number, rconPassword: string, username: string, kick: boolean = false): Promise<RconResult> {
+export async function unwhitelistPlayer(rconHost: string, rconPort: number, rconPassword: string, username: string, kick: boolean = true): Promise<RconResult> {
 	const rconClient = await rconConnect(rconHost, rconPort, rconPassword);
 
 	const response = await rconClient.send(`whitelist remove ${username}`);
