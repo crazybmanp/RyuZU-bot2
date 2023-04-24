@@ -8,6 +8,15 @@ export class adminCog extends Cog {
 	requires: string[] = [];
 	cogName: string = 'admin';
 
+	// getInteractionRegistration(): BasicInteractionRegistration[] {
+	// 	return [
+	// 		{
+	// 			commandName: 'warn',
+	// 			interactionHandler: this.endwarn.bind(this)
+	// 		}
+	// 	]
+	// }
+
 	setup(): void {
 		this.bot.registerCommand({
 			command: 'say',
@@ -27,6 +36,22 @@ export class adminCog extends Cog {
 			function: this.say.bind(this)
 		})
 
+		// this.bot.registerCommand({
+		// 	command: 'warn',
+		// 	commandBuilder: new SlashCommandBuilder()
+		// 		.setName('warn')
+		// 		.setDescription('Warns a user')
+		// 		.addUserOption(option => option.setName('user')
+		// 			.setRequired(true)
+		// 			.setDescription('The user to warn')
+		// 		)
+		// 		.addStringOption(option => option.setName('reason')
+		// 			.setRequired(false)
+		// 			.setDescription('The reason for the warning')
+		// 		),
+		// 	function: this.startWarn.bind(this)
+		// })
+
 		this.bot.registerCommand({
 			command: 'issue',
 			commandBuilder: new SlashCommandBuilder()
@@ -36,6 +61,8 @@ export class adminCog extends Cog {
 		});
 		// bot.registerCommand('clean', clean);
 		// bot.registerCommand('purge', purge);
+
+		// this.bot.getCog<InteractionBasicCog>('interactionbasic').registerConsumer(this);
 	}
 
 	private isOwner(author: Discord.User): boolean {
@@ -64,12 +91,12 @@ export class adminCog extends Cog {
 	}
 
 	public hasPermOnServer(perm: Discord.PermissionString, author: Discord.GuildMember): boolean {
-		return author.permissions.has('MANAGE_MESSAGES');
+		return author.permissions.has(perm);
 	}
 
 	public hasPermOnChannel(perm: Discord.PermissionString, channel: Discord.GuildChannel | Discord.TextChannel | Discord.NewsChannel | Discord.ThreadChannel, author: Discord.User): boolean {
 		const perms = channel.permissionsFor(author);
-		return perms?.has('MANAGE_MESSAGES') ?? false;
+		return perms?.has(perm) ?? false;
 	}
 
 	async say(interaction: Discord.CommandInteraction): Promise<void> {
@@ -118,6 +145,71 @@ export class adminCog extends Cog {
 					});
 			});
 	}
+
+	// async startWarn(interaction: Discord.CommandInteraction): Promise<void> {
+	// 	if (!interaction.channel || !this.isModOnChannel(((await interaction.channel.fetch()) as GuildChannel), interaction.user)) {
+	// 		void interaction.reply({ content: 'You do not have permission to use this command', ephemeral: true });
+	// 		return;
+	// 	}
+
+	// 	const BasicInteractionCog = this.bot.getCog<InteractionBasicCog>('interactionbasic');
+
+	// 	const user = interaction.options.getUser('user');
+	// 	if (!user) {
+	// 		void interaction.reply({ content: 'You must specify a user to warn', ephemeral: true });
+	// 		return;
+	// 	}
+
+	// 	const reason = interaction.options.getString('reason');
+
+	// 	const confirm = new MessageButton()
+	// 		.setCustomId(BasicInteractionCog.makeInteractionCustomId(this, 'warn', 'confirm'))
+	// 		.setLabel('Confirm')
+	// 		.setStyle('DANGER');
+
+	// 	const cancel = new MessageButton()
+	// 		.setCustomId(BasicInteractionCog.makeInteractionCustomId(this, 'warn', 'cancel'))
+	// 		.setLabel('Cancel')
+	// 		.setStyle('SECONDARY');
+
+	// 	const row = new MessageActionRow()
+	// 		.addComponents(confirm, cancel);
+
+	// 	await interaction.reply({
+	// 		content: `Are you sure you want to warn ${user.username}#${user.discriminator} for ${reason ?? 'no reason'}?`,
+	// 		components: [row],
+	// 		ephemeral: true
+	// 	});
+	// }
+
+	// async endwarn(
+	// 	interaction: MessageComponentInteraction,
+	// 	interactionInformation: BasicInteractionInformation
+	// ): Promise<void> {
+	// 	if (!interaction.channel || !this.isModOnChannel(((await interaction.channel.fetch()) as GuildChannel), interaction.user)) {
+	// 		void interaction.reply({ content: 'You do not have permission to use this command', ephemeral: true });
+	// 		return;
+	// 	}
+
+	// 	switch (interactionInformation.subInteractionName) {
+	// 		case undefined:
+	// 			throw new Error('Sub interaction name is undefined');
+	// 		case 'confirm':
+	// 			void interaction.update({
+	// 				content: 'Confirmed',
+	// 				components: []
+	// 			});
+
+	// 			void interaction.channel.send('How dare he!');
+	// 				break;
+	// 		case 'cancel':
+	// 			void interaction.update({
+	// 				content: 'Cancelled',
+	// 				components: []
+	// 			});
+	// 			break;
+	// 	}
+	// }
 
 	// const clean = function (msg: Message) {
 	// 	const lim: number = parseInt(msg.content);

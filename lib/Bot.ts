@@ -7,6 +7,7 @@ import { ActivityTypes } from 'discord.js/typings/enums';
 import { loggerCog } from '../core/logger';
 import { Cog } from './Cog';
 import { Config, getConfig } from './Config';
+import { IInteractionConsumer, isInteractionConsumer } from './interfaces/IInteractionConsumer';
 export type CogFactory = (bot: Bot) => Cog;
 export type CommandFunction = (interaction: Interaction) => Promise<void> | void;
 export type CommandRegistration = {
@@ -35,7 +36,7 @@ export class Bot {
 
 	readonly devMode: boolean;
 	readonly commandDevMode = (): boolean => !!this.commandGuildServer;
-	readonly commandGuildServer: string[]|undefined;
+	readonly commandGuildServer: string[] | undefined;
 
 	constructor() {
 		this.ready = false;
@@ -291,12 +292,60 @@ export class Bot {
 		}
 		if (interaction.isCommand()) {
 			const command = this.commands.find(c => c.command === interaction.commandName);
+
 			if (!command) {
 				this.logger.error('Command not found: ' + interaction.commandName);
 				await interaction.reply('Something seems to be wrong with this command. Please contact the owner.');
 				return;
 			}
+
 			await command.function(interaction);
+		} else if (interaction.isMessageComponent()) {
+			const [cogname, ...t] = interaction.customId.split(':');
+
+			const customId = t.join(':');
+
+			const cog = this.resolveComponentRouter(cogname);
+			if (cog === undefined) {
+				this.logger.error(`Cog ${cogname} not found for interaction ${interaction.customId}`);
+				return;
+			} else if (!isInteractionConsumer(cog)) {
+				this.logger.error(`Cog ${cogname} does not implement IInteractionConsumer for interaction ${interaction.customId}`);
+				return;
+			}
+
+			cog.handleInteraction(interaction, customId);
+		}
+	}
+
+	private getInteractionConsumers(): IInteractionConsumer[] {
+		const consumers: IInteractionConsumer[] = [];
+		for (const cogName in this.loadedCogs) {
+			const cog = this.loadedCogs[cogName];
+			if (isInteractionConsumer(cog)) {
+				consumers.push(cog);
+			}
+		}
+		return consumers;
+	}
+
+	private getInteractionConsumerByShort(shortname: string): IInteractionConsumer | undefined {
+		for (const cog of this.getInteractionConsumers()) {
+			if (cog.shortName === shortname) {
+				return cog;
+			}
+		}
+		return undefined;
+	}
+
+	private resolveComponentRouter(cogname: string): IInteractionConsumer | undefined {
+		if (cogname.startsWith('#')) {
+			const shortname = cogname.substring(1);
+			return this.getInteractionConsumerByShort(shortname);
+		}
+		const cog = this.getCog(cogname);
+		if (isInteractionConsumer(cog)) {
+			return cog;
 		}
 	}
 
