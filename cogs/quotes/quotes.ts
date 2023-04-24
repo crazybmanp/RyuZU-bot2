@@ -10,9 +10,10 @@ import { QuoteNumber } from './QuoteNumber';
 import { utilCog } from '../../core/util';
 import { error } from 'console';
 import { Quote } from './Quote';
-
+// import { IWebConsumer, webCog } from '../../core/web';
+// import { RequestHandler } from 'express';
 export class quoteCog extends Cog implements IDatabaseConsumer {
-	requires: string[] = ['core/database', 'core/util'];
+	requires: string[] = ['core:database', 'core:util'];
 	cogName: string = 'quotes';
 
 	private manager: EntityManager;
@@ -22,6 +23,18 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		super(bot);
 	}
 
+	// getRoute(): RequestHandler {
+	// 	// eslint-disable-next-line @typescript-eslint/no-misused-promises
+	// 	return async (req, res) => {
+	// 		const quote = await this.manager.createQueryBuilder(Quote, 'quote').orderBy('RANDOM()').getOne();
+	// 		if (!quote) {
+	// 			res.send(`There are no quotes`);
+	// 			return;
+	// 		}
+	// 		res.send(this.constructQuote(quote));
+	// 	}
+	// }
+
 	getModels(): unknown[] {
 		return [Quote, QuoteNumber];
 	}
@@ -30,6 +43,7 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		this.manager = manager;
 		this.databaseCog = database;
 	}
+
 	shutdownManager(): void {
 		// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 		//@ts-ignore
@@ -111,6 +125,7 @@ export class quoteCog extends Cog implements IDatabaseConsumer {
 		})
 
 		this.bot.getCog<databaseCog>('database').registerCog(this);
+		// this.bot.getCog<webCog>('web').registerCog(this);
 	}
 
 	public async GiveQuote(guild: Discord.Guild, num: number|undefined = undefined): Promise<Quote> {

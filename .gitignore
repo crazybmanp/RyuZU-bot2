@@ -68,3 +68,5 @@ config/
 !.eslintrc.js
 
 tsconfig.tsbuildinfo
+
+creds/

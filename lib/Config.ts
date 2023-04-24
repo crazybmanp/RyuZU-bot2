@@ -10,6 +10,23 @@ export type DatabaseConfig = {
 	schema?: string
 }
 
+export type WebConfig = {
+	enable: {
+		homepage: boolean;
+		health: boolean;
+		command: boolean;
+	}
+	webroot: string,
+	port: number,
+	ssl?: {
+		sslKey?: string,
+		sslCert?: string,
+		sslKeyLocation?: string,
+		sslCertLocation?: string
+		port: number
+	}
+}
+
 export type Config = {
 	token: string,
 	applicationId: string,
@@ -21,6 +38,7 @@ export type Config = {
 	devMode: boolean,
 	database: DatabaseConfig,
 	stackdriverName: string,
+	webConfig?: WebConfig
 	CommandServerRegistration?:
 	{
 		CommandServerList: [string]
@@ -62,6 +80,17 @@ const configEnvMap: configEnvMap<Config> = {
 		database: { name: 'DB_DATABASE', type: 'string' },
 		schema: { name: 'DB_SCHEMA', type: 'string' }
 	},
+	webConfig: {
+		webroot: { name: 'RYUZU_WEBROOT', type: 'string' },
+		port: { name: 'RYUZU_WEBPORT', type: 'number' },
+		ssl: {
+			sslKey: { name: 'RYUZU_SSL_KEY', type: 'string' },
+			sslCert: { name: 'RYUZU_SSL_CERT', type: 'string' },
+			sslKeyLocation: { name: 'RYUZU_SSL_KEY_LOCATION', type: 'string' },
+			sslCertLocation: { name: 'RYUZU_SSL_CERT_LOCATION', type: 'string' },
+			port: { name: 'RYUZU_SSL_PORT', type: 'number'}
+		}
+	},
 	stackdriverName: { name: 'STACKDRIVER_NAME', type: 'string' }
 }
 
@@ -79,6 +108,26 @@ function isDatabaseConfig(arg: unknown): arg is DatabaseConfig {
 			);
 	}
 	return false;
+}
+
+function isWebConfig(arg: unknown): arg is WebConfig {
+	if (typeof arg === 'object' && arg !== null) {
+		const webConfig = arg as WebConfig;
+		if (typeof webConfig.webroot === 'string'
+			&& typeof webConfig.port === 'number') {
+			if (webConfig.ssl) {
+				if (typeof webConfig.ssl.port !== 'number') { return false; }
+				if(typeof webConfig.ssl.sslKey === 'string' || typeof webConfig.ssl.sslKeyLocation === 'string') {
+					if(typeof webConfig.ssl.sslCert === 'string' || typeof webConfig.ssl.sslCertLocation === 'string') {
+						return true;
+					}
+				}
+				return false;
+			}
+			return true;
+		}
+	}
+	return false
 }
 
 function isConfig(arg: unknown): arg is Config {
@@ -123,7 +172,11 @@ function isConfig(arg: unknown): arg is Config {
 
 		if (config.stackdriverName && typeof config.stackdriverName !== 'string') { return false; }
 
-		if (!isDatabaseConfig(config.database)) {
+		if (config.database && !isDatabaseConfig(config.database)) {
+			return false;
+		}
+
+		if (config.webConfig && !isWebConfig(config.webConfig)) {
 			return false;
 		}
 		return true;
@@ -245,4 +298,3 @@ export function getConfig(): Config {
 
 	return config;
 }
-

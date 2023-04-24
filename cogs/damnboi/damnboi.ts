@@ -7,7 +7,7 @@ import { Quote, quoteCog } from '../quotes';
 const memeMsg: string = 'oh yeah damn damn boi DAMN BOI HE THICC BOI THAT\'S A THICC ASS BOI DAMN';
 
 export class damnboiCog extends Cog {
-	requires: string[] = [];
+	requires: string[] = ['cogs:quotes'];
 	cogName: string = 'damnboi';
 
 	setup(): void {

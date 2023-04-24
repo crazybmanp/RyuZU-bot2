@@ -16,7 +16,13 @@ export type CommandRegistration = {
 	function: CommandFunction,
 }
 
-const coreCogs = ['core/admin', './core/util'];
+const coreCogs = ['core:admin', 'core:util'];
+
+type cogLocation = 'core' | 'cogs' | 'module';
+
+function isCogLocation(x: string): x is cogLocation {
+	return ['core', 'cogs', 'module'].includes(x);
+}
 
 export class Bot {
 	commands: CommandRegistration[];
@@ -175,13 +181,25 @@ export class Bot {
 		this.commands.push(reg);
 	}
 
-	async loadCog(cogname: string): Promise<void> {
+	async loadCog(cogLocator: string): Promise<void> {
+		const [cogLocation, cogname] = cogLocator.split(':');
+
+		if (!isCogLocation(cogLocation)) {
+			this.logger.error(`Invalid cog location ${cogLocation}`);
+			process.exit(1);
+		}
+
 		if (cogname in this.loadedCogs) {
+			this.logger.warn('Cog ' + cogname + ' already loaded');
 			return;
 		}
+
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
-			const e: Cog = (require(`../${cogname}`).default as CogFactory)(this);
+			const e = this.requireCog(cogname, cogLocation);
+			if (e.cogName !== cogname) {
+				this.logger.error(`Cog ${cogname} in location ${cogLocation} has invalid name ${e.cogName}`);
+				process.exit(1);
+			}
 			if (e.requires.length > 0) {
 				this.logger.info(`Module ${cogname} requires ${e.requires.join(', ')}`);
 				for (let i = 0; i < e.requires.length; i++) {
@@ -194,6 +212,20 @@ export class Bot {
 		} catch (err: unknown) {
 			this.logger.error('Failed to load ' + cogname, { err: err });
 			process.exit(1);
+		}
+	}
+
+	private requireCog(cogname: string, cogLocation: cogLocation): Cog {
+		switch (cogLocation) {
+			case 'core':
+				// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
+				return (require(`../core/${cogname}`).default as CogFactory)(this);
+			case 'cogs':
+				// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
+				return (require(`../cogs/${cogname}`).default as CogFactory)(this);
+			case 'module':
+				// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
+				return (require(`${cogname}`).default as CogFactory)(this);
 		}
 	}
 
