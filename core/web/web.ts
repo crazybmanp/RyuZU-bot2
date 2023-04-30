@@ -1,24 +1,37 @@
+import crypto from 'crypto';
+import fs from 'fs';
+import http from 'http';
+import https from 'https';
+
+import cookieParser from 'cookie-parser';
+import { CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
+import express, { Express, RequestHandler } from 'express';
+import { EntityManager } from 'typeorm';
+
 import { Bot } from '../../lib/Bot';
 import { Cog } from '../../lib/Cog';
 import { IWebConsumer } from '.';
-import express, { Express, RequestHandler } from 'express';
-import { CommandInteraction } from 'discord.js';
-import { SlashCommandBuilder } from '@discordjs/builders';
 import { WebConfig } from '../../lib/Config';
-import fs from 'fs';
-import https from 'https';
-import http from 'http';
+import { IDatabaseConsumer, databaseCog } from '../database';
+import { WebSession } from './WebSession';
+import { SessionManager, SessionAccessor } from './session';
+import { DiscordAuthProvider } from './auth';
 
-export class webCog extends Cog {
-	requires: string[] = [];
+export class webCog extends Cog implements IDatabaseConsumer {
+	requires: string[] = ['core:database'];
 	cogName: string = 'web';
 
 	private registeredConsumers: IWebConsumer[];
-	private config: WebConfig
+	private config: WebConfig;
+	private sessionManager: SessionManager;
+	private discordAuth?: DiscordAuthProvider;
 
 	private httpServer: http.Server;
 	private httpsServer?: https.Server;
 	private express: Express;
+	private databaseCog: databaseCog;
+	private entityManager: EntityManager;
 
 	constructor(bot: Bot) {
 		super(bot);
@@ -40,6 +53,8 @@ export class webCog extends Cog {
 				function: this.website.bind(this)
 			})
 		}
+
+		this.bot.getCog<databaseCog>('database').registerCog(this);
 	}
 
 	postSetup(): void {
@@ -69,18 +84,46 @@ export class webCog extends Cog {
 		this.httpServer.listen(this.config.port);
 	}
 
+	giveManager(manager: EntityManager, database: databaseCog): void {
+		this.entityManager = manager;
+		this.databaseCog = database;
+		this.postDatabaseSetup();
+	}
+
+	getModels(): unknown[] {
+		return [ WebSession ];
+	}
+
+	shutdownManager(): void {
+		// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+		//@ts-ignore
+		this.manager = undefined;
+	}
+
 	registerCog(target: IWebConsumer): void {
 		this.bot.logger.debug(`Registering cog ${target.cogName} for web.`);
 		this.registeredConsumers.push(target);
 	}
 
 	private MainExpressSetup(app: Express): void {
+		app.use(cookieParser());
+		app.use((req, res, next) => {
+			if (!this.sessionManager) {
+				return res.status(500).end('Not ready!');
+			}
+			req.id = crypto.randomUUID();
+			res.on('finish', () => {
+				this.sessionManager.clearCacheForRequest(req);
+			});
+			return next();
+		});
+
 		if (this.config.enable.homepage) {
 			app.get('/', (req, res) => {
 				res.send(`
 				<html>
 					<head>
-						<title>Ryuzu</title>
+						<title>RyuZU</title>
 						<style>
 							body {
 								background-color: #2f3136;
@@ -111,7 +154,7 @@ export class webCog extends Cog {
 					<body>
 						<div id="container">
 							<div id="content">
-								<h1>RyuZu</h1>
+								<h1>RyuZU</h1>
 								<h2>${this.bot.config.gameMessage} - ${this.bot.version}</h2>
 								<p>${this.bot.config.description}</p>
 							</div>
@@ -137,24 +180,39 @@ export class webCog extends Cog {
 		}
 	}
 
+	private postDatabaseSetup(): void {
+		this.sessionManager = new SessionManager(this.entityManager);
+		for (const consumer of this.registeredConsumers) {
+			if (consumer.giveSessionAccessor) {
+				consumer.giveSessionAccessor(new SessionAccessor(consumer.cogName, this.sessionManager));
+			}
+		}
+
+		if (this.config.auth) {
+			this.discordAuth = new DiscordAuthProvider(this.config, this.express, this.entityManager, new SessionAccessor('web', this.sessionManager));
+			this.discordAuth.setupRoutes();
+		}
+	}
+
 	private setRoute(cogname: string, handler: RequestHandler): void {
-		this.express.get(`/cog/${cogname}`, handler);
+		this.bot.logger.debug(`Setting route for ${cogname} cog.`);
+		this.express.use(`/cog/${cogname}`, handler);
 	}
 
 	private website(interaction: CommandInteraction): void {
-		void interaction.reply(`https://${this.getWebroot()}`);
+		void interaction.reply(this.getWebroot());
 	}
 
-	public getWebroot(forceNonSSL: boolean = false): string {
-		let port: number;
-		if (!forceNonSSL && this.config.ssl) {
-			port = this.config.ssl.port;
-		} else {
-			port = this.config.port;
+	public getWebroot(): string {
+		return `${this.config.webroot}/`;
+	}
+
+	public requireAuth(redirectUrl: string): (req: express.Request, res: express.Response, next: express.NextFunction) => void | Promise<void> {
+		return (req, res, next) => {
+			if (!this.discordAuth) throw new Error('Auth not enabled');
+			return this.discordAuth.requireAuth(redirectUrl)(req, res, next);
 		}
-		return `${this.config.webroot}:${port}/`;
 	}
-
 
 	private resolveCredentials(): { key: string, cert: string } | undefined {
 		if (!this.config.ssl) return undefined;

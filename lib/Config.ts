@@ -25,6 +25,10 @@ export type WebConfig = {
 		sslCertLocation?: string
 		port: number
 	}
+	auth?: {
+		clientId: string,
+		clientSecret: string,
+	}
 }
 
 export type Config = {
