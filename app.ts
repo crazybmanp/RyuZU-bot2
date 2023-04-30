@@ -4,7 +4,6 @@ import { Bot } from './lib/Bot';
 import { isCommand } from './lib/interfaces/ICommandProvider';
 sourceMapSupport.install();
 
-
 const bot = new Bot();
 const botSetup = bot.setup();
 
