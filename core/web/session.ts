@@ -85,7 +85,7 @@ export class SessionAccessor {
 }
 
 export class SessionManager {
-	private sessionTimeout: number = 1000 * 60 * 15;
+	private sessionTimeout: number = 1000 * 60 * 60 * 8;
 	private entityManager: EntityManager;
 	private cache: Map<string, WebSession>;
 
@@ -120,9 +120,8 @@ export class SessionManager {
 
 				// To limit the load on the database, we only forcibly flush the session if it's within 10 minutes of expiring
 				// This lowers the load on the database a lot when someone is clicking around and sending several requests per minute,
-				// but has the side effect that a session can expire after 10 minutes instead of 15 if the user times it just right.
 
-				if (expiresAt - Date.now() < (1000 * 60 * 10)) {
+				if (expiresAt - Date.now() < (1000 * 60 * 60 * 5)) {
 					await this.entityManager.save(session);
 				}
 

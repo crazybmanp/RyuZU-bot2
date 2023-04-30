@@ -107,6 +107,8 @@ export class webCog extends Cog implements IDatabaseConsumer {
 
 	private MainExpressSetup(app: Express): void {
 		app.use(cookieParser());
+		app.use(express.urlencoded({ extended: true }));
+		app.use(express.json());
 		app.use((req, res, next) => {
 			if (!this.sessionManager) {
 				return res.status(500).end('Not ready!');
@@ -207,10 +209,10 @@ export class webCog extends Cog implements IDatabaseConsumer {
 		return `${this.config.webroot}/`;
 	}
 
-	public requireAuth(redirectUrl: string): (req: express.Request, res: express.Response, next: express.NextFunction) => void | Promise<void> {
+	public requireAuth(redirectUrl?: string): (req: express.Request, res: express.Response, next: express.NextFunction) => void | Promise<void> {
 		return (req, res, next) => {
 			if (!this.discordAuth) throw new Error('Auth not enabled');
-			return this.discordAuth.requireAuth(redirectUrl)(req, res, next);
+			return this.discordAuth.requireAuth(redirectUrl || req.originalUrl)(req, res, next);
 		}
 	}
 

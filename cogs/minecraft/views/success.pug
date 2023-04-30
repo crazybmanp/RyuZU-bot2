@@ -1,0 +1,5 @@
+extends layout.pug
+
+block content
+	h1= whitelisted ? 'Whitelisted' : 'Request Sent'
+	p= whitelisted ? 'You have been whitelisted!' : 'You don\'t have permission to whitelist yourself, so a request has been sent to the admins. You\'ll receive a Discord message once your request is processed.'

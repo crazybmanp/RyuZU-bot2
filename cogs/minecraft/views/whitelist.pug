@@ -1,0 +1,19 @@
+extends layout.pug
+
+block content
+	h1 Whitelist
+	if whitelisted
+		p You are currently whitelisted as #{username}
+		a(href='#')#change Change
+	else
+		p Please enter your username below to request whitelisting on #{server.name}
+	form(class=whitelisted? 'hidden' : '', action='/cog/minecraft/whitelist/' + server.id, method='POST')#whitelist-form
+		input(type='text', placeholder='Minecraft Username', name='minecraftUsername', value=username)
+		button(type='submit') Whitelist
+
+block scripts
+	script(type='text/javascript')
+		| document.getElementById('change').addEventListener('click', function() {
+		| 	document.getElementById('whitelist-form').classList.remove('hidden')
+		| 	document.getElementById('change').classList.add('hidden')
+		| })

@@ -1,4 +1,6 @@
-import Discord from 'discord.js';
+import Discord, { Guild } from 'discord.js';
+import express, { RequestHandler } from 'express';
+import pug from 'pug';
 
 import { databaseCog as DatabaseCog, IDatabaseConsumer } from '../../core/database';
 import { adminCog as AdminCog } from '../../core/admin';
@@ -20,8 +22,9 @@ import { SubcommandGroupHandler } from '../../lib/SubcommandGroup';
 import { MessageComponentTypes } from 'discord.js/typings/enums';
 import { ButtonStyle } from 'discord-api-types/v9';
 import { sendDm } from '../../core/dm';
+import { DiscordAuthProviderPublicSession, IWebConsumer, SessionAccessor, webCog as WebCog } from '../../core/web';
 
-export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteractionBasicConsumer {
+export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteractionBasicConsumer, IWebConsumer {
 	requires: string[] = ['core:database', 'core:admin', 'core:util', 'core:interactionbasic'];
 	cogName: string = 'minecraft';
 
@@ -30,6 +33,8 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 	private adminCog: AdminCog;
 	private utilCog: UtilCog;
 	private basicInteractionCog: InteractionBasicCog;
+	private sessionAccessor: SessionAccessor;
+	private webCog: WebCog;
 
 	constructor(bot: Bot) {
 		super(bot);
@@ -61,6 +66,185 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 				interactionHandler: this.interactionDenyWhitelist.bind(this)
 			}
 		]
+	}
+
+	getRoute(): RequestHandler {
+		const router = express.Router();
+		const views = {
+			error: pug.compileFile(`${__dirname}/views/error.pug`),
+			whitelist: pug.compileFile(`${__dirname}/views/whitelist.pug`),
+			success: pug.compileFile(`${__dirname}/views/success.pug`)
+		}
+
+		const renderView = (res: express.Response, view: pug.compileTemplate, data: pug.LocalsObject | undefined, status: number = 200): express.Response => {
+			return res.status(status).header('Content-Type', 'text/html').end(view(data));
+		}
+
+		const showError = (res: express.Response, message: string, statusCode: number = 400): express.Response => {
+			return renderView(res, views.error, { title: 'Error', message }, statusCode);
+		}
+
+		const resolveServerAndUserInfo = async (req: express.Request, res: express.Response): Promise<[MinecraftServer, Guild, Discord.GuildMember, GuildMember] | null> => {
+			const serverId = Number(req.params.server_id);
+			const publicSession = await this.sessionAccessor.getPublicSessionForRequest(req) as DiscordAuthProviderPublicSession;
+			if (Number.isNaN(serverId)) {
+				showError(res, 'Invalid Server ID');
+				return null;
+			}
+			const server = await this.manager.getRepository(MinecraftServer).findOne({ where: { id: serverId } });
+			if (!server) {
+				showError(res, 'Server not found');
+				return null;
+			}
+
+			const guild = this.bot.client.guilds.resolve(server.guildId);
+			if (!guild) {
+				this.bot.logger.error(`Failed for resolve guild ${server.guildId} for request ${req.id}`);
+				showError(res, `Internal server error (request ${req.id})`);
+				return null;
+			}
+
+			const member = guild.members.resolve(publicSession.user.id);
+			if (!member) {
+				showError(res, 'You are not in the server');
+				return null;
+			}
+
+			const dbUser = await this.databaseCog.getUser(publicSession.user.id);
+			const dbGuildMember = dbUser?.guildMember?.find(x => x.guildId === guild.id);
+			if (!dbUser || !dbGuildMember) {
+				this.bot.logger.error(`Failed to look up user ${publicSession.user.id} in the datbase for request ${req.id}`);
+				showError(res, `Internal server error (request ${req.id})`);
+				return null;
+			}
+
+			return [server, guild, member, dbGuildMember]
+		}
+
+		// eslint-disable-next-line @typescript-eslint/no-misused-promises
+		router.get('/whitelist/:server_id', this.webCog.requireAuth(), async (req, res) => {
+			const resolvedInfo = await resolveServerAndUserInfo(req, res);
+			if (resolvedInfo === null) {
+				return;
+			}
+
+			const [server, guild, member, dbGuildMember] = resolvedInfo;
+
+			const existingPlayer = await this.manager.findOne(MinecraftPlayer, { where: { memberId: dbGuildMember.id } });
+			if (existingPlayer) {
+				return renderView(res, views.whitelist, { title: 'Whitelist', server, whitelisted: true, username: existingPlayer.minecraftUsername });
+			}
+
+			const config = await this.manager.getRepository(MinecraftGuildConfig).findOne({ where: { guildId: guild.id } });
+			if (config && config.whitelistRole && !config.adminChannelId) {
+				if (!member.roles.cache.has(config.whitelistRole)) {
+					return showError(res, 'You do not have permission to whitelist yourself');
+				}
+			}
+
+			return renderView(res, views.whitelist, { title: 'Whitelist', server, username: req.query.username });
+		});
+
+		// eslint-disable-next-line @typescript-eslint/no-misused-promises
+		router.post('/whitelist/:server_id', this.webCog.requireAuth(), async (req, res) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+			const minecraftUsername: string = typeof (req.body.minecraftUsername) === 'string' ? req.body.minecraftUsername.trim() : null;
+			if (typeof (minecraftUsername) !== 'string' || minecraftUsername.length === 0) {
+				return showError(res, 'Malformed request');
+			}
+			const resolvedInfo = await resolveServerAndUserInfo(req, res);
+			if (resolvedInfo === null) {
+				return;
+			}
+			const [, guild, member, dbGuildMember] = resolvedInfo;
+			const mcGuildConfig = await this.manager.findOne(MinecraftGuildConfig, { where: { guildId: guild.id } }) || undefined;
+
+			let mcUuid: string = '';
+			try {
+				mcUuid = await getUuidFromUsername(minecraftUsername);
+			} catch (e) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+				this.bot.logger.error(`Failed to get UUID for ${minecraftUsername} (request id ${req.id})`, { err: e });
+				return showError(res, 'That Minecraft user does not exist.');
+			}
+
+			const playerRepo = this.manager.getRepository(MinecraftPlayer);
+
+			const existingPlayerByDiscord = await playerRepo.findOne({ where: { memberId: dbGuildMember.id } });
+			if (existingPlayerByDiscord) {
+				if (existingPlayerByDiscord.blocked) {
+					return showError(res, 'You are blocked from whitelisting');
+				}
+
+				const oldUsername = existingPlayerByDiscord.minecraftUsername;
+				if (oldUsername) {
+					await this.serverWhitelistAction(guild, 'unwhitelist', oldUsername, 'Username change', mcGuildConfig);
+				}
+				await playerRepo.remove(existingPlayerByDiscord);
+			}
+
+			const existingPlayerByMinecraft = await playerRepo.findOne({ where: { minecraftUuid: mcUuid } });
+			if (existingPlayerByMinecraft) {
+				return showError(res, 'That Minecraft user is already whitelisted by someone else. You may need to contact an admin for help.');
+			}
+
+			// Role check
+			if (mcGuildConfig && mcGuildConfig.whitelistRole) {
+				if (!member.roles.cache.has(mcGuildConfig.whitelistRole)) {
+					if (!mcGuildConfig.adminChannelId) {
+						return showError(res, 'You do not have permission to whitelist yourself');
+					} else {
+						const adminChannel = guild.channels.resolve(mcGuildConfig.adminChannelId);
+						if (adminChannel && adminChannel.isText()) {
+							const approveId = this.basicInteractionCog.makeInteractionCustomId(this, 'whitelistApprove', '', `${member.user.id}:${minecraftUsername}:${mcUuid}`);
+							const denyId = this.basicInteractionCog.makeInteractionCustomId(this, 'whitelistDeny', '', `${member.user.id}:${minecraftUsername}`);
+
+							await adminChannel.send({
+								content: `<@${member.user.id}> has requested to be whitelisted with the username ${minecraftUsername}`,
+								components: [
+									{
+										type: MessageComponentTypes.ACTION_ROW,
+										components: [
+											{
+												type: MessageComponentTypes.BUTTON,
+												customId: approveId,
+												label: 'Approve',
+												style: ButtonStyle.Success
+											},
+											{
+												type: MessageComponentTypes.BUTTON,
+												customId: denyId,
+												label: 'Deny',
+												style: ButtonStyle.Danger
+											}
+										]
+									}
+								]
+							});
+
+							return renderView(res, views.success, { title: 'Requested', whitelisted: false });
+						}
+						this.bot.logger.error(`Admin channel ${mcGuildConfig.adminChannelId} is not a text channel (request ID ${req.id})`);
+						return showError(res, `Internal server error (request ID ${req.id})`);
+					}
+				}
+			}
+
+			const newPlayer = new MinecraftPlayer();
+			newPlayer.minecraftUuid = mcUuid;
+			newPlayer.minecraftUsername = minecraftUsername;
+			newPlayer.memberId = dbGuildMember.id;
+			await playerRepo.save(newPlayer);
+
+			await this.serverWhitelistAction(guild, 'whitelist', minecraftUsername, 'Whitelisted', mcGuildConfig);
+			return renderView(res, views.success, { title: 'Whitelisted', whitelisted: true });
+		});
+
+		return router;
+	}
+
+	giveSessionAccessor(accessor: SessionAccessor): void {
+		this.sessionAccessor = accessor;
 	}
 
 	setup(): void {
@@ -239,6 +423,8 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 
 		this.bot.getCog<DatabaseCog>('database').registerCog(this);
 		this.basicInteractionCog.registerConsumer(this);
+		this.webCog = this.bot.getCog<WebCog>('web');
+		this.webCog.registerCog(this);
 	}
 
 	private async resolveGuildMembership(interaction: Discord.CommandInteraction | Discord.ButtonInteraction): Promise<[guild: Discord.Guild, guildMember: Discord.GuildMember, dbUser: User, dbGuildMember: GuildMember, mcGuildConfig?: MinecraftGuildConfig]> {
@@ -345,8 +531,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 					});
 					const adminChannel = guild.channels.resolve(mcGuildConfig.adminChannelId);
 					if (adminChannel && adminChannel.isText()) {
-						// TODO: Approve and Deny interaction
-						const approveId = this.basicInteractionCog.makeInteractionCustomId(this, 'whitelistApprove', '',`${interaction.user.id}:${username}:${mcUuid}}`);
+						const approveId = this.basicInteractionCog.makeInteractionCustomId(this, 'whitelistApprove', '', `${interaction.user.id}:${username}:${mcUuid}`);
 						const denyId = this.basicInteractionCog.makeInteractionCustomId(this, 'whitelistDeny', '', `${interaction.user.id}:${username}`);
 
 						await adminChannel.send({
@@ -573,7 +758,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 	}
 
 	private async commandAdminSetWhitelistRole(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember,,,mcGuildConfig] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
 		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
 				content: 'You do not have permission to use this command',
@@ -644,7 +829,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 	}
 
 	private async commandAdminBlockPlayer(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember,,,mcGuildConfig] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
 		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
@@ -717,7 +902,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 	}
 
 	private async commandAdminUnblockPlayer(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
 		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
@@ -794,7 +979,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 	}
 
 	private async commandAdminAddServer(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
 		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
@@ -930,7 +1115,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 	}
 
 	private async commandAdminDeleteServer(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
 		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
@@ -958,7 +1143,7 @@ export class MinecraftCog extends Cog implements IDatabaseConsumer, IInteraction
 	}
 
 	private async commandAdminSync(interaction: Discord.CommandInteraction): Promise<void> {
-		const [guild, guildMember,,, mcGuildConfig] = await this.resolveGuildMembership(interaction);
+		const [guild, guildMember, , , mcGuildConfig] = await this.resolveGuildMembership(interaction);
 
 		if (!(await this.checkAdmin(guild, guildMember, mcGuildConfig))) {
 			await interaction.reply({
